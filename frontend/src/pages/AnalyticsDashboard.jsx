@@ -1,10 +1,11 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Zap, Trees, Users, Award, TrendingUp, Loader2, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Zap, Trees, Users, Award, TrendingUp, Loader2, ArrowUpRight, ArrowDownRight, FileDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TimeFilter from '../components/TimeFilter';
 import { useCollection } from '../hooks/useFirestore';
 import { collection, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { downloadCSV } from '../utils/exportUtils';
 import clsx from 'clsx';
 
 export default function AnalyticsDashboard() {
@@ -12,9 +13,9 @@ export default function AnalyticsDashboard() {
     const [referenceDate, setReferenceDate] = useState(new Date().toISOString().split('T')[0]);
 
     // Fetch Live Data
-    const { data: projects, loading: projectsLoading } = useCollection(collection(db, 'projects'));
-    const { data: leads, loading: leadsLoading } = useCollection(collection(db, 'leads'));
-    const { data: qoutes, loading: quotesLoading } = useCollection(collection(db, 'quotes'));
+    const { data: projects, loading: projectsLoading } = useCollection('projects');
+    const { data: leads, loading: leadsLoading } = useCollection('leads');
+    const { data: qoutes, loading: quotesLoading } = useCollection('quotes');
 
     const isLoading = projectsLoading || leadsLoading || quotesLoading;
 
@@ -23,18 +24,20 @@ export default function AnalyticsDashboard() {
     const stats = useMemo(() => {
         if (isLoading) return null;
 
-        // 1. Total Energy (GWh) - Mock logic based on system size or project count
-        // In real world, sum(project.systemSize)
-        const totalSystemSizeKW = projects.reduce((acc, p) => acc + (Number(p.systemSize) || 5), 0); // Default 5kW if missing
-        const energyGeneratedGWh = (totalSystemSizeKW * 4.5 * 365) / 1000000; // Rough GWh est
+        // 1. Total Energy (GWh)
+        const totalSystemSizeKW = projects.reduce((acc, p) => acc + (Number(p.systemSize) || 5), 0);
+        const energyGeneratedGWh = (totalSystemSizeKW * 4.5 * 365) / 1000000;
 
         // 2. CO2 Saved (Tons)
-        const co2Saved = Math.round(energyGeneratedGWh * 700); // 700 tons per GWh approx
+        const co2Saved = Math.round(energyGeneratedGWh * 700);
 
-        // 3. Client Growth (Leads vs Projects)
-        const totalClients = projects.length; // Active clients
-        // Compare with last month... (Mocking growth for now)
-        const growthRate = 12.5;
+        // 3. Pipeline Metrics
+        const totalLeads = leads.length;
+        const wonLeads = leads.filter(l => l.stage === 'won' || l.status === 'won').length;
+        const conversionRate = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
+
+        const totalValue = leads.reduce((sum, l) => sum + (l.rawValue || 0), 0);
+        const avgDealSize = totalLeads > 0 ? (totalValue / totalLeads) : 0;
 
         // 4. Service Distribution
         const serviceCounts = {};
@@ -45,31 +48,47 @@ export default function AnalyticsDashboard() {
         const performanceData = Object.keys(serviceCounts).map(key => ({
             name: key,
             value: serviceCounts[key],
-            color: key.includes('Solar') ? '#f59e0b' : key.includes('Audit') ? '#3b82f6' : '#1e293b'
+            color: key.toLowerCase().includes('solar') ? '#f59e0b' : key.toLowerCase().includes('audit') ? '#3b82f6' : '#1e293b'
         }));
 
-        // 5. Weekly Installs (Mock distribution based on real count)
+        // 5. Weekly Installs
         const weeklyInstalls = [
             { day: 'Mon', count: 0 }, { day: 'Tue', count: 0 }, { day: 'Wed', count: 0 },
             { day: 'Thu', count: 0 }, { day: 'Fri', count: 0 }, { day: 'Sat', count: 0 }, { day: 'Sun', count: 0 }
         ];
         projects.forEach(p => {
-            if (p.startDate) {
-                const day = new Date(p.startDate).getDay(); // 0 = Sun, 1 = Mon
+            const dateStr = p.startDate || p.created_at || p.date;
+            if (dateStr) {
+                const day = new Date(dateStr).getDay();
                 const index = day === 0 ? 6 : day - 1;
-                weeklyInstalls[index].count += 1;
+                if (weeklyInstalls[index]) weeklyInstalls[index].count += 1;
             }
         });
 
         return {
             energy: energyGeneratedGWh.toFixed(2),
             co2: co2Saved,
-            growth: growthRate,
+            growth: 12.5, // Mocked growth for now as we don't have historical snapshots easily
+            conversionRate,
+            avgDealSize,
             performanceData,
             weeklyInstalls
         };
 
     }, [projects, leads, isLoading]);
+
+    const handleExport = () => {
+        const exportData = leads.map(l => ({
+            Name: l.name,
+            Email: l.email,
+            Phone: l.phone,
+            Source: l.source,
+            Stage: l.stage,
+            Value: l.value,
+            CreatedAt: l.created_at
+        }));
+        downloadCSV(exportData, `primistine_leads_${new Date().toISOString().split('T')[0]}.csv`);
+    };
 
     if (isLoading) {
         return (
@@ -83,8 +102,8 @@ export default function AnalyticsDashboard() {
         <div className="space-y-6">
             <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-premium-blue-900">Analytics & Insights</h1>
-                    <p className="text-slate-500">Live system performance and operational metrics.</p>
+                    <h1 className="text-2xl font-black text-premium-blue-900 tracking-tight">Analytics & Insights</h1>
+                    <p className="text-slate-500 text-sm font-medium">Live system performance and operational metrics.</p>
                 </div>
                 <div className="flex gap-3 items-center">
                     <TimeFilter
@@ -94,10 +113,10 @@ export default function AnalyticsDashboard() {
                         onDateChange={setReferenceDate}
                     />
                     <button
-                        onClick={() => alert("Report Builder: Generating report for " + timeRange)}
-                        className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-50"
+                        onClick={handleExport}
+                        className="flex items-center gap-2 bg-premium-blue-900 text-white px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest hover:shadow-xl hover:shadow-blue-900/20 transition-all active:scale-95"
                     >
-                        <Award size={16} /> Build Report
+                        <FileDown size={16} /> Export Data
                     </button>
                 </div>
             </div>
@@ -208,7 +227,7 @@ export default function AnalyticsDashboard() {
                         </div>
                         <div>
                             <p className="text-sm text-slate-500 mb-1">Avg. Deal Size</p>
-                            <p className="text-2xl font-bold text-slate-800">₦2.4M</p>
+                            <p className="text-2xl font-bold text-slate-800">₦{(stats.avgDealSize / 1000000).toFixed(1)}M</p>
                         </div>
                     </div>
                 </div>

@@ -1,20 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Check, Smartphone, AlertCircle } from 'lucide-react';
+import { User, Check, Smartphone, AlertCircle, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
-
-const ENGINEERS = [
-    { id: '1', name: 'John Doe', avatar: 'JD' },
-    { id: '2', name: 'Jane Smith', avatar: 'JS' },
-    { id: '3', name: 'Chidi Okonkwo', avatar: 'CO' },
-    { id: '4', name: 'Emmanuel A.', avatar: 'EA' },
-];
+import { useTeams } from '../../contexts/TeamsContext';
 
 export default function QuickAssignDropdown({ issue, onAssign, onClose }) {
+    const { teamMembers, loading } = useTeams();
     const [selectedEngineer, setSelectedEngineer] = useState(issue?.assignee || null);
     const [notify, setNotify] = useState(true);
     const [isUrgent, setIsUrgent] = useState(false);
     const containerRef = useRef(null);
+
+    // Helpers
+    const getInitials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) || '??';
+    const activeMembers = teamMembers?.filter(m => m.status === 'Active') || [];
 
     // Close on click outside
     useEffect(() => {
@@ -45,25 +44,39 @@ export default function QuickAssignDropdown({ issue, onAssign, onClose }) {
             <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Assign Engineer</h4>
 
             <div className="space-y-2 mb-4 max-h-48 overflow-y-auto no-scrollbar">
-                {ENGINEERS.map(eng => (
-                    <button
-                        key={eng.id}
-                        onClick={() => setSelectedEngineer(eng)}
-                        className={clsx(
-                            "w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-sm",
-                            selectedEngineer?.id === eng.id ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200" : "hover:bg-slate-50 text-slate-700"
-                        )}
-                    >
-                        <div className={clsx(
-                            "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
-                            selectedEngineer?.id === eng.id ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-500"
-                        )}>
-                            {eng.avatar}
-                        </div>
-                        <span className="flex-1 text-left font-medium">{eng.name}</span>
-                        {selectedEngineer?.id === eng.id && <Check size={16} />}
-                    </button>
-                ))}
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-slate-400 gap-2">
+                        <Loader2 size={24} className="animate-spin" />
+                        <span className="text-[10px] font-bold uppercase tracking-widest">Loading Team...</span>
+                    </div>
+                ) : activeMembers.length === 0 ? (
+                    <div className="text-center py-8 text-slate-400 italic text-sm">
+                        No active members found.
+                    </div>
+                ) : (
+                    activeMembers.map(eng => (
+                        <button
+                            key={eng.id}
+                            onClick={() => setSelectedEngineer(eng)}
+                            className={clsx(
+                                "w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-sm",
+                                selectedEngineer?.id === eng.id ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200" : "hover:bg-slate-50 text-slate-700"
+                            )}
+                        >
+                            <div className={clsx(
+                                "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                                selectedEngineer?.id === eng.id ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-500"
+                            )}>
+                                {getInitials(eng.name)}
+                            </div>
+                            <div className="flex-1 text-left">
+                                <span className="font-bold block leading-none">{eng.name}</span>
+                                <span className="text-[10px] text-slate-400 font-medium uppercase mt-1">{eng.role}</span>
+                            </div>
+                            {selectedEngineer?.id === eng.id && <Check size={16} />}
+                        </button>
+                    ))
+                )}
             </div>
 
             <div className="space-y-3 pt-3 border-t border-slate-100">

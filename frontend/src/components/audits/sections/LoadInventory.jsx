@@ -352,78 +352,80 @@ export default function LoadInventory({ data, updateData, onNext, services = [],
                 )}
 
                 {/* Unified Item List Table */}
-                <div className="border border-slate-100 rounded-xl overflow-hidden mb-6">
-                    <div className="p-3 bg-slate-50 border-b border-slate-100 font-bold text-slate-500 text-[10px] uppercase flex items-center">
-                        <div className="flex-[2] pl-2">{mode === 'industrial_load' ? 'Machine Name' : 'Appliance'}</div>
-                        <div className="flex-1 text-center">Watts</div>
-                        <div className="flex-1 text-center">Qty</div>
-                        {mode !== 'simplified' && <div className="flex-1 text-center">Hours</div>}
-                        {(mode === 'standard' || mode === 'industrial_load') && <div className="flex-1 text-center">Crit?</div>}
-                        <div className="w-10"></div>
-                    </div>
+                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                    <div className="border border-slate-100 rounded-xl overflow-hidden mb-6 min-w-[450px]">
+                        <div className="p-3 bg-slate-50 border-b border-slate-100 font-bold text-slate-500 text-[10px] uppercase flex items-center">
+                            <div className="flex-[2] pl-2">{mode === 'industrial_load' ? 'Machine Name' : 'Appliance'}</div>
+                            <div className="flex-1 text-center">Watts</div>
+                            <div className="flex-1 text-center">Qty</div>
+                            {mode !== 'simplified' && <div className="flex-1 text-center">Hours</div>}
+                            {(mode === 'standard' || mode === 'industrial_load') && <div className="flex-1 text-center">Crit?</div>}
+                            <div className="w-10"></div>
+                        </div>
 
-                    <div className="divide-y divide-slate-50">
-                        {items.length === 0 && (
-                            <div className="p-8 text-center text-slate-400 italic bg-white">
-                                No items added yet.
-                            </div>
-                        )}
-                        {items.map(item => (
-                            <div key={item.id} className="p-2 flex items-center gap-2 hover:bg-slate-50 transition-colors group bg-white">
-                                <div className="flex-[2] min-w-0">
-                                    <input
-                                        type="text"
-                                        value={item.name}
-                                        onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                                        className="w-full font-medium text-slate-700 bg-transparent outline-none text-sm placeholder:text-slate-300"
-                                        placeholder="Item name"
-                                    />
+                        <div className="divide-y divide-slate-50">
+                            {items.length === 0 && (
+                                <div className="p-8 text-center text-slate-400 italic bg-white">
+                                    No items added yet.
                                 </div>
-                                <div className="flex-1 flex justify-center">
-                                    <input
-                                        type="number"
-                                        value={item.power}
-                                        onChange={(e) => updateItem(item.id, 'power', parseFloat(e.target.value) || 0)}
-                                        className="w-14 text-center bg-slate-100 rounded py-1 text-xs font-bold text-slate-600"
-                                    />
-                                </div>
-                                <div className="flex-1 flex justify-center">
-                                    <div className="flex items-center border border-slate-200 rounded bg-white">
-                                        <button onClick={() => updateItem(item.id, 'qty', Math.max(1, item.qty - 1))} className="w-5 py-0.5 hover:bg-slate-100 text-slate-400">-</button>
-                                        <span className="w-6 text-center text-xs font-medium">{item.qty}</span>
-                                        <button onClick={() => updateItem(item.id, 'qty', item.qty + 1)} className="w-5 py-0.5 hover:bg-slate-100 text-slate-600">+</button>
+                            )}
+                            {items.map(item => (
+                                <div key={item.id} className="p-2 flex items-center gap-2 hover:bg-slate-50 transition-colors group bg-white">
+                                    <div className="flex-[2] min-w-0">
+                                        <input
+                                            type="text"
+                                            value={item.name}
+                                            onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                                            className="w-full font-medium text-slate-700 bg-transparent outline-none text-sm placeholder:text-slate-300"
+                                            placeholder="Item name"
+                                        />
                                     </div>
-                                </div>
-
-                                {mode !== 'simplified' && (
                                     <div className="flex-1 flex justify-center">
                                         <input
                                             type="number"
-                                            value={item.hours}
-                                            onChange={(e) => updateItem(item.id, 'hours', parseFloat(e.target.value) || 0)}
-                                            className="w-10 text-center bg-transparent border-b border-slate-200 focus:border-premium-blue-500 outline-none text-xs"
+                                            value={item.power}
+                                            onChange={(e) => updateItem(item.id, 'power', parseFloat(e.target.value) || 0)}
+                                            className="w-14 text-center bg-slate-100 rounded py-1 text-xs font-bold text-slate-600"
                                         />
                                     </div>
-                                )}
-
-                                {(mode === 'standard' || mode === 'industrial_load') && (
                                     <div className="flex-1 flex justify-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={item.critical}
-                                            onChange={(e) => updateItem(item.id, 'critical', e.target.checked)}
-                                            className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
-                                        />
+                                        <div className="flex items-center border border-slate-200 rounded bg-white">
+                                            <button onClick={() => updateItem(item.id, 'qty', Math.max(1, item.qty - 1))} className="w-5 py-0.5 hover:bg-slate-100 text-slate-400">-</button>
+                                            <span className="w-6 text-center text-xs font-medium">{item.qty}</span>
+                                            <button onClick={() => updateItem(item.id, 'qty', item.qty + 1)} className="w-5 py-0.5 hover:bg-slate-100 text-slate-600">+</button>
+                                        </div>
                                     </div>
-                                )}
 
-                                <div className="w-10 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => removeItem(item.id)} className="text-red-300 hover:text-red-500">
-                                        <Trash2 size={14} />
-                                    </button>
+                                    {mode !== 'simplified' && (
+                                        <div className="flex-1 flex justify-center">
+                                            <input
+                                                type="number"
+                                                value={item.hours}
+                                                onChange={(e) => updateItem(item.id, 'hours', parseFloat(e.target.value) || 0)}
+                                                className="w-10 text-center bg-transparent border-b border-slate-200 focus:border-premium-blue-500 outline-none text-xs"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {(mode === 'standard' || mode === 'industrial_load') && (
+                                        <div className="flex-1 flex justify-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={item.critical}
+                                                onChange={(e) => updateItem(item.id, 'critical', e.target.checked)}
+                                                className="w-4 h-4 rounded border-slate-300 text-amber-500 focus:ring-amber-500"
+                                            />
+                                        </div>
+                                    )}
+
+                                    <div className="w-10 flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => removeItem(item.id)} className="text-red-300 hover:text-red-500">
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
                     </div>
                 </div>
 

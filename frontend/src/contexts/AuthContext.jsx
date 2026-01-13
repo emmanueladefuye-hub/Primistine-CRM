@@ -8,14 +8,17 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { toast } from 'react-hot-toast';
 
 const AuthContext = createContext();
 
 // ⚠️ BOOTSTRAP MODE: Set to TRUE to allow the first admin to be created based on email
 // In production, set this to false or use environment variable
-const BOOTSTRAP_MODE = true;
+// ⚠️ BOOTSTRAP MODE: Set to TRUE to allow the first admin to be created based on email
+// In production, set this to false or use environment variable
+const BOOTSTRAP_MODE = false;
 // REPLACE WITH YOUR EMAIL
-const FOUNDER_EMAILS = BOOTSTRAP_MODE ? ['emmanuelfirebrand@gmail.com', 'admin@primistine.com', 'admin@primistine.ng', 'your-email@primistine.ng'] : [];
+const FOUNDER_EMAILS = [];
 
 export function useAuth() {
     return useContext(AuthContext);
@@ -53,19 +56,18 @@ export function AuthProvider({ children }) {
         }
 
         try {
-            // backup original if not already done
-            if (!originalProfile) setOriginalProfile(userProfile);
-
-            // Fetch generic role template
-            // We need permission map for that role
+            // Fetch generic role template first to ensure it exists before we commit to simulation
             const roleDoc = await getDoc(doc(db, 'roles', roleId));
-            let newPermissions = {};
-            if (roleDoc.exists()) {
-                newPermissions = roleDoc.data().permissions;
-            } else {
-                toast.error(`Role ${roleId} definition not found`);
+
+            if (!roleDoc.exists()) {
+                toast.error(`Role definition for "${roleId}" not found. Please click "Initialize Roles" in System Setup.`);
                 return;
             }
+
+            const newPermissions = roleDoc.data().permissions;
+
+            // backup original if not already done
+            if (!originalProfile) setOriginalProfile(userProfile);
 
             // Apply simulation
             setUserProfile(prev => ({
@@ -78,8 +80,8 @@ export function AuthProvider({ children }) {
 
             toast.success(`Now simulating: ${roleId}`);
         } catch (e) {
-            console.error(e);
-            toast.error("Failed to switch role");
+            console.error("Simulation Error:", e);
+            toast.error("Failed to switch role: " + e.message);
         }
     };
 

@@ -11,7 +11,7 @@ import ReportIssueModal from './ReportIssueModal';
 import IssueDetailPanel from './IssueDetailPanel';
 
 export default function IssuesDashboard() {
-    const { issues, loading } = useIssues();
+    const { issues, updateIssue, loading } = useIssues();
     const [selectedIssue, setSelectedIssue] = useState(null);
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [filterSeverity, setFilterSeverity] = useState('All');
@@ -240,6 +240,7 @@ export default function IssuesDashboard() {
             <IssueDetailPanel
                 issue={selectedIssue}
                 onClose={() => setSelectedIssue(null)}
+                onUpdate={updateIssue}
             />
 
         </div>

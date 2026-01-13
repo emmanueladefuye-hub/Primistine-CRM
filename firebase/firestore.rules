@@ -54,7 +54,7 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     // 1. SYSTEM CONFIG (Roles)
-    match /system/roles/{roleId} {
+    match /roles/{roleId} {
       allow read: if isAuthenticated(); // App needs this to load permissions
       allow write: if isAdmin();
     }

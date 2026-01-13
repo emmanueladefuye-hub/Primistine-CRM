@@ -404,7 +404,7 @@ export default function SalesDashboard() {
                         {loading ? <Skeleton count={4} className="h-64 rounded-2xl flex-1" wrapperClassName="flex gap-4 h-full" /> : (
                             <div className="flex gap-4 min-w-[1200px] lg:min-w-0 h-full">
                                 {PIPELINE_STAGES.map((stage) => (
-                                    <div key={stage.id} className="flex-1 min-w-[280px] lg:min-w-0 flex flex-col">
+                                    <div key={stage.id} className="flex-1 min-w-[260px] lg:min-w-0 flex flex-col">
                                         <div className="flex items-center justify-between mb-4 px-2">
                                             <div className="flex items-center gap-3">
                                                 <div className={clsx("w-3 h-3 rounded-full ring-4 ring-offset-2", stage.color.replace('bg-', 'ring-').replace('-500', '-50'), stage.color)}></div>

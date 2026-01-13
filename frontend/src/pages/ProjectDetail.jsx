@@ -11,6 +11,7 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import ProjectHeader from '../components/projects/ProjectHeader';
 import ProjectCommandCenter from '../components/projects/ProjectCommandCenter';
 import ReportIssueModal from '../components/operations/ReportIssueModal';
+import ScheduleVisitModal from '../components/projects/ScheduleVisitModal';
 
 // Tabs
 // Tabs
@@ -50,6 +51,7 @@ export default function ProjectDetail() {
     // UI State
     const [activeTab, setActiveTab] = useState('Overview');
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
     const handleQuickAction = async (actionId) => {
         if (actionId === 'report_issue') {
@@ -115,7 +117,7 @@ export default function ProjectDetail() {
         if (actionId === 'upload_photo') {
             setActiveTab('Photos');
         } else if (actionId === 'schedule_visit') {
-            toast('Calendar scheduling coming soon!', { icon: '📅' });
+            setIsScheduleModalOpen(true);
         } else if (actionId === 'view_audit') {
             // Check if audit exists or just show toast
             toast('Audit sync in progress...', { icon: '🔄' });
@@ -216,6 +218,11 @@ export default function ProjectDetail() {
                     projectId: project.id,
                     location: project.location || '',
                 }}
+            />
+            <ScheduleVisitModal
+                isOpen={isScheduleModalOpen}
+                onClose={() => setIsScheduleModalOpen(false)}
+                project={project}
             />
         </div>
     );

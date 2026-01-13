@@ -3,6 +3,7 @@ import { Search, AlertCircle, ShoppingCart, Package, ArrowUpRight, Filter, Plus,
 import clsx from 'clsx';
 import StockMovementModal from '../components/StockMovementModal';
 import ProductDetailModal from '../components/ProductDetailModal';
+import AddProductModal from '../components/AddProductModal';
 
 import { useInventory } from '../contexts/InventoryContext';
 import TimeFilter from '../components/TimeFilter';
@@ -11,6 +12,8 @@ export default function InventoryDashboard() {
     const { inventory, updateStock, loading } = useInventory();
     const [selectedMovementProduct, setSelectedMovementProduct] = useState(null); // For Stock Movement
     const [selectedDetailProduct, setSelectedDetailProduct] = useState(null); // For Product Detail
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState('all');
     const [timeRange, setTimeRange] = useState('day');
     const [referenceDate, setReferenceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -18,15 +21,18 @@ export default function InventoryDashboard() {
     // Mock multiplier for valuation
     const multiplier = timeRange === 'day' ? 0.04 : timeRange === 'week' ? 0.23 : timeRange === 'year' ? 12 : 1;
 
-    const handleStockUpdate = async ({ type, quantity, productId }) => {
+    const handleStockUpdate = async ({ type, quantity, productId, reference, notes }) => {
         const adjustment = type === 'in' ? quantity : -quantity;
-        await updateStock(productId, adjustment);
+        await updateStock(productId, adjustment, { reference, notes });
         setSelectedMovementProduct(null); // Close modal only after update
     };
 
-    const filteredInventory = activeTab === 'low'
-        ? inventory.filter(i => i.status !== 'In Stock')
-        : inventory;
+    const filteredInventory = inventory.filter(item => {
+        const matchesTab = activeTab === 'all' || item.status !== 'In Stock';
+        const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            item.sku.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesTab && matchesSearch;
+    });
 
     const ProductCard = ({ item, onMovement, onDetail }) => (
         <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4 hover:shadow-md transition-all active:scale-[0.99]">
@@ -85,6 +91,10 @@ export default function InventoryDashboard() {
                 onClose={() => setSelectedDetailProduct(null)}
                 product={selectedDetailProduct}
             />
+            <AddProductModal
+                isOpen={isAddModalOpen}
+                onClose={() => setIsAddModalOpen(false)}
+            />
 
             {/* Metrics Row: Executive High-Density */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -137,6 +147,8 @@ export default function InventoryDashboard() {
                         <input
                             type="text"
                             placeholder="Search SKU or Name..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-11 pr-4 py-3 sm:py-3.5 rounded-2xl bg-slate-50 border-none focus:ring-2 focus:ring-premium-gold-400/30 text-sm font-bold placeholder:text-slate-400 transition-all"
                         />
                     </div>
@@ -153,7 +165,10 @@ export default function InventoryDashboard() {
                         <button className="flex-1 justify-center flex items-center gap-3 px-6 py-3 bg-white border border-slate-100 text-slate-600 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 active:scale-95 transition-all">
                             <FileText size={16} /> Reports
                         </button>
-                        <button className="flex-1 justify-center flex items-center gap-3 bg-premium-blue-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-premium-blue-900/20 active:scale-95 transition-all">
+                        <button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="flex-1 justify-center flex items-center gap-3 bg-premium-blue-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-premium-blue-900/20 active:scale-95 transition-all"
+                        >
                             <Plus size={16} strokeWidth={4} /> Add Product
                         </button>
                     </div>

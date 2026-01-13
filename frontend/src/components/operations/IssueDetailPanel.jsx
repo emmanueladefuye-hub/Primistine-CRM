@@ -12,32 +12,29 @@ export default function IssueDetailPanel({ issue, onClose, onUpdate }) {
     const [activeTab, setActiveTab] = useState('details');
     const [isAssignOpen, setIsAssignOpen] = useState(false);
     const [comment, setComment] = useState('');
+    const [resolutionNotes, setResolutionNotes] = useState('');
 
     if (!issue) return null;
 
     const handleAssign = (assignmentData) => {
-        // Mock update
-        const updatedIssue = {
-            ...issue,
+        onUpdate(issue.id, {
             assignee: assignmentData.engineer,
-            status: 'Assigned', // Auto-move to assigned
+            status: 'Assigned',
             activityLog: [
                 ...(issue.activityLog || []),
                 {
                     type: 'ASSIGNMENT',
                     text: `Assigned to ${assignmentData.engineer.name}`,
                     date: new Date().toISOString(),
-                    user: 'You'
+                    user: 'Admin'
                 }
             ]
-        };
-        onUpdate(updatedIssue);
+        });
         setIsAssignOpen(false);
     };
 
     const handleStatusChange = (newStatus) => {
-        const updatedIssue = {
-            ...issue,
+        onUpdate(issue.id, {
             status: newStatus,
             activityLog: [
                 ...(issue.activityLog || []),
@@ -45,18 +42,38 @@ export default function IssueDetailPanel({ issue, onClose, onUpdate }) {
                     type: 'STATUS',
                     text: `Status changed to ${newStatus}`,
                     date: new Date().toISOString(),
-                    user: 'You'
+                    user: 'Current User'
                 }
             ]
-        };
-        onUpdate(updatedIssue);
+        });
         toast.success(`Marked as ${newStatus}`);
+    };
+
+    const handleResolve = () => {
+        if (!resolutionNotes.trim()) {
+            toast.error("Please provide resolution notes.");
+            return;
+        }
+        onUpdate(issue.id, {
+            status: 'Resolved',
+            resolutionNotes: resolutionNotes,
+            activityLog: [
+                ...(issue.activityLog || []),
+                {
+                    type: 'RESOLUTION',
+                    text: `Issue resolved: ${resolutionNotes}`,
+                    date: new Date().toISOString(),
+                    user: 'Current User'
+                }
+            ]
+        });
+        toast.success('Issue marked as Resolved');
+        setActiveTab('details');
     };
 
     const handleAddComment = () => {
         if (!comment.trim()) return;
-        const updatedIssue = {
-            ...issue,
+        onUpdate(issue.id, {
             commentsCount: (issue.commentsCount || 0) + 1,
             activityLog: [
                 ...(issue.activityLog || []),
@@ -64,11 +81,10 @@ export default function IssueDetailPanel({ issue, onClose, onUpdate }) {
                     type: 'COMMENT',
                     text: comment,
                     date: new Date().toISOString(),
-                    user: 'You'
+                    user: 'Current User'
                 }
             ]
-        };
-        onUpdate(updatedIssue);
+        });
         setComment('');
         toast.success('Comment added');
     };
@@ -225,10 +241,15 @@ export default function IssueDetailPanel({ issue, onClose, onUpdate }) {
                                 className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:border-blue-500 outline-none"
                                 rows={4}
                                 placeholder="Describe the fix..."
+                                value={resolutionNotes}
+                                onChange={(e) => setResolutionNotes(e.target.value)}
                             />
                         </div>
 
-                        <button className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 transition-all active:scale-[0.98]">
+                        <button
+                            onClick={handleResolve}
+                            className="w-full py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-600/20 transition-all active:scale-[0.98]"
+                        >
                             Mark as Resolved
                         </button>
                     </div>

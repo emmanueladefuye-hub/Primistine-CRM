@@ -10,7 +10,8 @@ import {
     MessageSquare,
     Zap,
     ArrowRight,
-    RotateCcw
+    RotateCcw,
+    CalendarDays
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -175,7 +176,7 @@ export default function ProjectCommandCenter({ project, onAction, onNavigateToTa
                     <p className="text-sm font-medium text-slate-400">Essential field actions</p>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-1 min-[380px]:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     <ToolItem
                         icon={ClipboardList}
                         label="Project Log"
@@ -199,6 +200,12 @@ export default function ProjectCommandCenter({ project, onAction, onNavigateToTa
                         label="Report Issue"
                         color="bg-rose-50 text-rose-600"
                         onClick={() => onNavigateToTab('Issues')}
+                    />
+                    <ToolItem
+                        icon={CalendarDays}
+                        label="Field Visit"
+                        color="bg-blue-50 text-blue-600"
+                        onClick={() => onAction('schedule_visit')}
                     />
                     <ToolItem
                         icon={MessageSquare}

@@ -1,6 +1,6 @@
 import React, { createContext, useContext } from 'react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, orderBy, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { useCollection } from '../hooks/useFirestore';
 import { toast } from 'react-hot-toast';
 
@@ -21,7 +21,14 @@ export function InventoryProvider({ children }) {
 
     const addItem = async (newItem) => {
         try {
-            await addDoc(collection(db, 'inventory'), newItem);
+            const docData = {
+                ...newItem,
+                stock: Number(newItem.stock) || 0,
+                reorderPoint: Number(newItem.reorderPoint) || 10,
+                status: (Number(newItem.stock) || 0) <= 0 ? 'Out of Stock' : (Number(newItem.stock) || 0) < (Number(newItem.reorderPoint) || 10) ? 'Low Stock' : 'In Stock',
+                createdAt: serverTimestamp()
+            };
+            await addDoc(collection(db, 'inventory'), docData);
             toast.success('Product added to inventory');
         } catch (err) {
             console.error('Error adding item:', err);
@@ -42,16 +49,43 @@ export function InventoryProvider({ children }) {
         }
     };
 
-    const updateStock = async (id, adjustment) => {
+    const updateStock = async (id, adjustment, metadata = {}) => {
         try {
-            const item = inventory.find(i => String(i.id) === String(id));
-            if (!item) throw new Error('Item not found');
-
-            const newStock = (item.stock || 0) + adjustment;
-            const status = newStock <= 0 ? 'Out of Stock' : newStock < 10 ? 'Low Stock' : 'In Stock';
-
             const docRef = doc(db, 'inventory', String(id));
-            await updateDoc(docRef, { stock: newStock, status });
+
+            await runTransaction(db, async (transaction) => {
+                const docSnap = await transaction.get(docRef);
+                if (!docSnap.exists()) {
+                    throw new Error("Product does not exist!");
+                }
+
+                const data = docSnap.data();
+                const currentStock = Number(data.stock) || 0;
+                const newStock = currentStock + adjustment;
+                const reorderPoint = Number(data.reorderPoint) || 10;
+
+                let status = 'In Stock';
+                if (newStock <= 0) status = 'Out of Stock';
+                else if (newStock < reorderPoint) status = 'Low Stock';
+
+                transaction.update(docRef, {
+                    stock: newStock,
+                    status,
+                    updatedAt: serverTimestamp()
+                });
+
+                // Log movement in a sub-collection
+                const movementRef = doc(collection(docRef, 'movements'));
+                transaction.set(movementRef, {
+                    type: adjustment > 0 ? 'in' : 'out',
+                    quantity: Math.abs(adjustment),
+                    previousStock: currentStock,
+                    newStock: newStock,
+                    timestamp: serverTimestamp(),
+                    ...metadata
+                });
+            });
+
             toast.success('Stock level updated');
         } catch (err) {
             console.error('Error updating stock:', err);

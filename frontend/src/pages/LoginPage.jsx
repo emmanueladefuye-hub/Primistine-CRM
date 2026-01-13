@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { ArrowRight, Lock, AlertCircle, User, Mail } from 'lucide-react'; // Added icons
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { seedDatabase } from '../lib/seeder';
 
 export default function LoginPage() {
     const { login, signup } = useAuth();
@@ -152,24 +151,6 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* Dev Tool: Seed Database */}
-                <div className="mt-4 flex justify-center opacity-20 hover:opacity-100 transition-opacity">
-                    <button
-                        onClick={async () => {
-                            if (window.confirm('Reset/Seed Database?')) {
-                                try {
-                                    await seedDatabase();
-                                    alert('Database Seeded!');
-                                } catch (e) {
-                                    alert('Error: ' + e.message);
-                                }
-                            }
-                        }}
-                        className="text-xs text-white bg-slate-800 px-3 py-1 rounded"
-                    >
-                        [DEV] Seed Database
-                    </button>
-                </div>
             </div>
         </div>
     );
