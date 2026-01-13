@@ -1,0 +1,135 @@
+{
+    "name": "Audit Report Generator",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "audit-complete",
+                "options": {}
+            },
+            "name": "Webhook (Audit Complete)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "get",
+                "projectId": "primistine-crm",
+                "collection": "audits",
+                "documentId": "={{$node[\"Webhook (Audit Complete)\"].json[\"body\"][\"audit_id\"]}}",
+                "options": {}
+            },
+            "name": "Get Audit Data",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "audit_load_items",
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "audit_id",
+                            "operator": "==",
+                            "value": "={{$node[\"Webhook (Audit Complete)\"].json[\"body\"][\"audit_id\"]}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Load Items",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "html": "<html><body><h1>Audit Report</h1><p>Client: {{$node[\"Get Audit Data\"].json[\"client_id\"]}}</p><h2>Technical Findings</h2><p>Roof Type: {{$node[\"Get Audit Data\"].json[\"site_data\"][\"roof_type\"]}}</p><p>Earth Resistance: {{$node[\"Get Audit Data\"].json[\"electrical_readings\"][\"earth_resistance\"]}} Ohms</p><h2>Load Profile</h2><ul>{{$node[\"Get Load Items\"].json.map(item => `<li>${item.item_name}: ${item.total_daily_kwh} kWh</li>`).join('')}}</ul></body></html>",
+                "options": {}
+            },
+            "name": "Generate HTML Report",
+            "type": "n8n-nodes-base.htmlToPdf",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "projectId": "primistine-crm",
+                "storageBucket": "primistine-crm.appspot.com",
+                "fileName": "={{$node[\"Webhook (Audit Complete)\"].json[\"body\"][\"audit_id\"]}}_Report.pdf",
+                "binaryPropertyName": "data",
+                "options": {}
+            },
+            "name": "Upload to Firebase Storage",
+            "type": "n8n-nodes-base.firebaseStorage",
+            "typeVersion": 1,
+            "position": [
+                1050,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook (Audit Complete)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Audit Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Audit Data": {
+            "main": [
+                [
+                    {
+                        "node": "Get Load Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Load Items": {
+            "main": [
+                [
+                    {
+                        "node": "Generate HTML Report",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Generate HTML Report": {
+            "main": [
+                [
+                    {
+                        "node": "Upload to Firebase Storage",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

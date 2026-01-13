@@ -1,0 +1,72 @@
+{
+    "name": "Lead Capture",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "lead-submit",
+                "options": {}
+            },
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "create",
+                "projectId": "primistine-crm",
+                "collection": "leads",
+                "options": {}
+            },
+            "name": "Google Cloud Firestore",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "content": "New Lead Received from Primistine Web Form",
+                "options": {}
+            },
+            "name": "Discord Notification (Internal Debug)",
+            "type": "n8n-nodes-base.discord",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ],
+            "disabled": true
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Google Cloud Firestore",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Google Cloud Firestore": {
+            "main": [
+                [
+                    {
+                        "node": "Discord Notification (Internal Debug)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

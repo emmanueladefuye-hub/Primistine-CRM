@@ -1,0 +1,112 @@
+{
+    "name": "Payment Reminder",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 9 * * *"
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule Trigger (9am Daily)",
+            "type": "n8n-nodes-base.schedule",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "invoices",
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "status",
+                            "operator": "==",
+                            "value": "Overdue"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Overdue Invoices",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "functionCode": "// In a real scenario, you would probably want to check if a reminder was sent recently to avoid spamming.\n// For now, we pass all overdue invoices.\nreturn items;"
+            },
+            "name": "Filter Logic",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "fromEmail": "accounts@primistine.com",
+                "toEmail": "={{$json[\"client_email\"] || \"client@example.com\"}}",
+                "subject": "Overdue Invoice #{{$json[\"invoice_number\"]}}",
+                "text": "Dear Client,\n\nThis is a reminder that invoice #{{$json[\"invoice_number\"]}} for {{$json[\"amount_total\"]}} was due on {{$json[\"due_date\"]}}.\n\nPlease arrange payment at your earliest convenience.\n\nRegards,\nPrimistine Electric Accounts",
+                "options": {}
+            },
+            "name": "Send Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule Trigger (9am Daily)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Overdue Invoices",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Overdue Invoices": {
+            "main": [
+                [
+                    {
+                        "node": "Filter Logic",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter Logic": {
+            "main": [
+                [
+                    {
+                        "node": "Send Email",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

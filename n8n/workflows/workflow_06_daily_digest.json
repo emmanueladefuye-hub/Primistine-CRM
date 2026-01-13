@@ -1,0 +1,191 @@
+{
+    "name": "Daily Executive Digest",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 20 * * *"
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule Trigger (8pm Daily)",
+            "type": "n8n-nodes-base.schedule",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "leads",
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "created_at",
+                            "operator": ">=",
+                            "value": "={{$today.minus({hours: 20})}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Count Today's Leads",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "projects",
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "status",
+                            "operator": "in",
+                            "value": "['Planning', 'Procurement', 'Installation', 'Testing']"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Count Active Projects",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "functionCode": "const newLeads = items[0].json.length || 0;\nconst activeProjects = items[1].json.length || 0;\n\nreturn [{\n  json: {\n    new_leads: newLeads,\n    active_projects: activeProjects,\n    date: new Date().toISOString()\n  }\n}];"
+            },
+            "name": "Aggregate Stats",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "projectId": "primistine-crm",
+                "collection": "daily_summaries",
+                "documentId": "={{new Date().toISOString().split('T')[0]}}",
+                "columns": {
+                    "mappingMode": "defineBelow",
+                    "value": {
+                        "date": "={{$json[\"date\"]}}",
+                        "metrics": {
+                            "new_leads_today": "={{$json[\"new_leads\"]}}",
+                            "total_active_projects": "={{$json[\"active_projects\"]}}"
+                        }
+                    },
+                    "matchingColumns": [],
+                    "schema": []
+                },
+                "options": {}
+            },
+            "name": "Save to Firestore",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "fromEmail": "reports@primistine.com",
+                "toEmail": "ceo@primistine.com",
+                "subject": "📊 Daily Executive Digest - {{$today}}",
+                "text": "Here is the summary for today:\n\nNew Leads: {{$json[\"new_leads\"]}}\nActive Projects: {{$json[\"active_projects\"]}}\n\nCheck the dashboard for more details.",
+                "options": {}
+            },
+            "name": "Email CEO",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 1,
+            "position": [
+                1050,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule Trigger (8pm Daily)": {
+            "main": [
+                [
+                    {
+                        "node": "Count Today's Leads",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Count Active Projects",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Count Today's Leads": {
+            "main": [
+                [
+                    {
+                        "node": "Aggregate Stats",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Count Active Projects": {
+            "main": [
+                [
+                    {
+                        "node": "Aggregate Stats",
+                        "type": "main",
+                        "index": 1
+                    }
+                ]
+            ]
+        },
+        "Aggregate Stats": {
+            "main": [
+                [
+                    {
+                        "node": "Save to Firestore",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save to Firestore": {
+            "main": [
+                [
+                    {
+                        "node": "Email CEO",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

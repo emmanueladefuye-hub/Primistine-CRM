@@ -1,0 +1,96 @@
+{
+    "name": "Lead Notification",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "lead-notification",
+                "options": {}
+            },
+            "name": "Webhook (from AppSheet)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "fromEmail": "sales@primistine.com",
+                "toEmail": "={{$node[\"Webhook (from AppSheet)\"].json[\"body\"][\"assigned_email\"]}}",
+                "subject": "New Lead Assigned: {{$node[\"Webhook (from AppSheet)\"].json[\"body\"][\"lead_name\"]}}",
+                "text": "A new lead has been assigned to you.\nName: {{$node[\"Webhook (from AppSheet)\"].json[\"body\"][\"lead_name\"]}}\nPhone: {{$node[\"Webhook (from AppSheet)\"].json[\"body\"][\"lead_phone\"]}}\nPlease contact them within 2 hours.",
+                "options": {}
+            },
+            "name": "Send Email",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 1,
+            "position": [
+                450,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://api.ng.termii.com/api/sms/send",
+                "method": "POST",
+                "jsonParameters": true,
+                "bodyParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "to",
+                            "value": "={{$node[\"Webhook (from AppSheet)\"].json[\"body\"][\"assigned_phone\"]}}"
+                        },
+                        {
+                            "name": "from",
+                            "value": "Primistine"
+                        },
+                        {
+                            "name": "sms",
+                            "value": "New Lead: {{$node[\"Webhook (from AppSheet)\"].json[\"body\"][\"lead_name\"]}}. Phone: {{$node[\"Webhook (from AppSheet)\"].json[\"body\"][\"lead_phone\"]}}"
+                        },
+                        {
+                            "name": "type",
+                            "value": "plain"
+                        },
+                        {
+                            "name": "channel",
+                            "value": "generic"
+                        },
+                        {
+                            "name": "api_key",
+                            "value": "YOUR_TERMII_API_KEY"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Send SMS (Termii)",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                450,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook (from AppSheet)": {
+            "main": [
+                [
+                    {
+                        "node": "Send Email",
+                        "type": "main",
+                        "index": 0
+                    },
+                    {
+                        "node": "Send SMS (Termii)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

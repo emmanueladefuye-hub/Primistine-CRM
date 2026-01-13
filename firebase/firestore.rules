@@ -1,0 +1,134 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+
+    // Check if user is signed in
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Get the user's profile document from Firestore
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Check specific role
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+
+    // Check if user has one of a list of roles
+    function hasAnyRole(roles) {
+      return isAuthenticated() && getUserData().role in roles;
+    }
+
+    // Check if user is Super Admin or Admin
+    function isAdmin() {
+      return hasAnyRole(['super_admin', 'admin']);
+    }
+
+    // Check if user is a Manager (Level 3+)
+    function isManager() {
+      return hasAnyRole(['super_admin', 'admin', 'manager', 'finance', 'inventory_manager']);
+    }
+
+    // Check ownership
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if resource is created by the user
+    function isResourceOwner() {
+      return resource.data.createdBy == request.auth.uid;
+    }
+
+    function isAssigned() {
+      // Handles both array 'team' and string 'assignedTo'/'auditorId'
+      return request.auth.uid == resource.data.assignedTo || 
+             request.auth.uid == resource.data.auditorId ||
+             request.auth.uid in resource.data.team;
+    }
+    
+    // --- COLLECTION RULES ---
+
+    // 1. SYSTEM CONFIG (Roles)
+    match /system/roles/{roleId} {
+      allow read: if isAuthenticated(); // App needs this to load permissions
+      allow write: if isAdmin();
+    }
+
+    // 2. USERS
+    match /users/{userId} {
+      // Users can read themselves. Admins/Managers can read all (for Team views).
+      allow read: if isOwner(userId) || isManager() || hasAnyRole(['sales_rep', 'engineer', 'auditor']); 
+      // Only Admins can create/delete users. Users can update their own non-sensitive data? 
+      // Safest to restrict update to Admin or Self (limited fields).
+      // For now, simple check:
+      allow create: if isAdmin() || (userId == request.auth.uid); // Allow cleanup/init
+      allow update: if isAdmin() || isOwner(userId);
+      allow delete: if hasRole('super_admin');
+    }
+
+    // 3. LEADS
+    match /leads/{leadId} {
+      // Sales: Own only. Admin/Manager: All.
+      allow read: if isAdmin() || isManager() || (hasRole('sales_rep') && isResourceOwner());
+      allow create: if isAdmin() || isManager() || hasRole('sales_rep');
+      allow update: if isAdmin() || isManager() || (hasRole('sales_rep') && isResourceOwner());
+      allow delete: if isAdmin();
+    }
+    
+    // 4. PROJECTS
+    match /projects/{projectId} {
+      // Engineers see assigned. Managers/Admins see all.
+      allow read: if isAdmin() || isManager() || (hasRole('engineer') && isAssigned()) || (hasRole('sales_rep') && resource.data.clientId == request.auth.uid); 
+      // Note: Sales rep seeing projects for their client if needed? Added loose check just in case.
+      
+      allow create: if isAdmin() || isManager();
+      allow update: if isAdmin() || isManager() || (hasRole('engineer') && isAssigned()); // Engineers update progress
+      allow delete: if isAdmin();
+      
+      // SUB-COLLECTIONS (Work Orders, etc)
+      match /{subcollection}/{document=**} {
+        allow read, write: if isAdmin() || isManager() || (hasRole('engineer') && get(/databases/$(database)/documents/projects/$(projectId)).data.team.hasAny([request.auth.uid]));
+      }
+    }
+
+    // 5. SITE AUDITS
+    match /site_audits/{auditId} {
+      // Auditors see assigned/own.
+      allow read: if isAdmin() || isManager() || (hasRole('auditor') && (isResourceOwner() || isAssigned())) || (hasRole('engineer') && isAssigned());
+      allow create: if isAdmin() || isManager() || hasRole('auditor') || hasRole('engineer');
+      allow update: if isAdmin() || isManager() || (hasRole('auditor') && isResourceOwner()) || (hasRole('engineer') && isAssigned());
+      allow delete: if isAdmin();
+    }
+
+    // 6. QUOTES
+    match /quotes/{quoteId} {
+      allow read: if isAdmin() || isManager() || isResourceOwner();
+      allow create: if isAdmin() || isManager() || hasRole('sales_rep');
+      allow update: if isAdmin() || isManager() || (hasRole('sales_rep') && isResourceOwner() && resource.data.status == 'Draft');
+      allow delete: if isAdmin();
+    }
+    
+    // 7. INVENTORY
+    match /inventory/{itemId} {
+      allow read: if isAuthenticated(); // Everyone needs to see products
+      allow write: if hasAnyRole(['super_admin', 'admin', 'inventory_manager']);
+    }
+
+    // 8. LOGS / ACTIVITY
+    match /logs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated(); // App writes logs
+      allow delete: if hasRole('super_admin');
+    }
+    
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

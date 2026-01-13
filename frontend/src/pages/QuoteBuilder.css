@@ -1,0 +1,435 @@
+/* Quote Builder Professional Styles */
+.quote-page {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+    background-color: #f3f4f6;
+    padding: 2rem 0;
+}
+
+.quote-page-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: white;
+    padding: 3rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border-radius: 12px;
+}
+
+/* Header Styling */
+.quote-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 2rem;
+    border-bottom: 3px solid #1e40af;
+    margin-bottom: 2rem;
+}
+
+.quote-header h1 {
+    font-size: 1.8rem;
+    color: #1a1a1a;
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.quote-number {
+    font-size: 1.1rem;
+    color: #1e40af;
+    font-weight: 600;
+}
+
+.quote-date {
+    color: #666;
+    font-size: 0.9rem;
+}
+
+/* Progress Steps */
+.progress-steps {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 3rem;
+    position: relative;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.progress-steps::before {
+    content: '';
+    position: absolute;
+    top: 25px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: #e5e5e5;
+    z-index: 0;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+}
+
+.step-circle {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #e5e5e5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s;
+    color: #9ca3af;
+}
+
+.step-circle.completed {
+    background: #1e40af;
+    border-color: #1e40af;
+    color: white;
+}
+
+.step-circle.active {
+    background: #1a1a1a;
+    border-color: #1a1a1a;
+    color: white;
+    box-shadow: 0 0 0 4px rgba(26, 26, 26, 0.1);
+}
+
+.step-label {
+    font-size: 0.85rem;
+    color: #666;
+    font-weight: 500;
+    text-align: center;
+}
+
+.step.completed .step-label,
+.step.active .step-label {
+    color: #1a1a1a;
+    font-weight: 600;
+}
+
+/* Section Typography */
+h2 {
+    font-size: 1.4rem;
+    color: #1a1a1a;
+    margin-bottom: 1rem;
+    font-weight: 600;
+}
+
+/* Pricing Layout */
+.pricing-layout {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+/* Materials Table */
+.materials-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 1rem 0;
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.materials-table thead {
+    background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+}
+
+.materials-table th {
+    color: white;
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.materials-table td {
+    padding: 1rem;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 1rem;
+    color: #374151;
+}
+
+.materials-table tr:last-child td {
+    border-bottom: none;
+}
+
+.materials-table tr:hover {
+    background: #f8f9fa;
+}
+
+/* Price columns alignment */
+.materials-table td:nth-child(3),
+.materials-table td:nth-child(4),
+.materials-table td:nth-child(5) {
+    text-align: right;
+    font-weight: 500;
+}
+
+.materials-table td:nth-child(5) {
+    color: #1e40af;
+    font-weight: 600;
+}
+
+/* Summary Section */
+.summary-section {
+    position: sticky;
+    top: 2rem;
+    height: fit-content;
+}
+
+.cost-summary {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border: 2px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 2rem;
+}
+
+.cost-summary h3 {
+    font-size: 1.3rem;
+    margin-bottom: 1.5rem;
+    color: #1a1a1a;
+    border-bottom: 2px solid #1e40af;
+    padding-bottom: 0.5rem;
+    font-weight: 700;
+}
+
+.cost-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.8rem 0;
+    border-bottom: 1px solid #e8e8e8;
+}
+
+.cost-row:last-child {
+    border-bottom: none;
+}
+
+.cost-row.total {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 2px solid #1e40af;
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.cost-row.total .amount {
+    color: #1e40af;
+    font-size: 1.5rem;
+}
+
+.cost-label {
+    color: #555;
+    font-weight: 500;
+}
+
+.amount {
+    color: #1a1a1a;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+/* Buttons */
+.add-item-btn {
+    background: white;
+    border: 2px dashed #1e40af;
+    color: #1e40af;
+    padding: 0.8rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.add-item-btn:hover {
+    background: #eff6ff;
+    border-style: solid;
+}
+
+.action-buttons {
+    margin-top: 3rem;
+    display: flex;
+    justify-content: space-between;
+    padding-top: 2rem;
+    border-top: 1px solid #f0f0f0;
+}
+
+.back-btn {
+    padding: 1rem 2rem;
+    color: #6b7280;
+    font-weight: 600;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.back-btn:hover {
+    color: #1a1a1a;
+}
+
+.next-step-btn {
+    background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+    color: white;
+    padding: 1rem 3rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(30, 64, 175, 0.3);
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.next-step-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(30, 64, 175, 0.4);
+}
+
+.next-step-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 1024px) {
+    .quote-page-container {
+        padding: 2rem;
+        margin: 1rem;
+        max-width: none;
+    }
+
+    .pricing-layout {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .summary-section {
+        position: static;
+    }
+
+    .progress-steps {
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .quote-page {
+        padding: 1rem 0;
+    }
+
+    .quote-page-container {
+        padding: 1.5rem;
+        margin: 0.5rem;
+        border-radius: 0;
+    }
+
+    .quote-header {
+        flex-direction: column;
+        gap: 1.5rem;
+        text-align: center;
+    }
+
+    .company-logo {
+        justify-content: center;
+        width: 100%;
+    }
+
+    .quote-header h1 {
+        font-size: 1.4rem;
+    }
+
+    .step-label {
+        display: none;
+    }
+
+    .step-circle {
+        width: 40px;
+        height: 40px;
+    }
+
+    .progress-steps::before {
+        top: 20px;
+    }
+
+    .materials-section {
+        overflow-x: auto;
+    }
+
+    .materials-table {
+        min-width: 700px;
+    }
+
+    .action-buttons {
+        flex-direction: column-reverse;
+        gap: 1rem;
+    }
+
+    .next-step-btn,
+    .back-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .cost-summary {
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .quote-header h1 {
+        font-size: 1.2rem;
+    }
+
+    .quote-number {
+        font-size: 1.0rem;
+    }
+
+    .section-title {
+        font-size: 1.2rem;
+    }
+}
+
+/* Print Styles */
+@media print {
+    .quote-page {
+        padding: 0;
+        background: white;
+    }
+
+    .quote-page-container {
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+        max-width: none;
+    }
+
+    .sidebar,
+    .action-buttons,
+    .add-item-btn,
+    .delete-btn {
+        display: none !important;
+    }
+
+    .progress-steps {
+        display: none;
+    }
+}

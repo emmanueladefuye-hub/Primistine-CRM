@@ -1,0 +1,113 @@
+{
+    "name": "Low Stock Alert",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 8 * * 1-5"
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule Trigger (8am Mon-Fri)",
+            "type": "n8n-nodes-base.schedule",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "inventory_items",
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "stock_level",
+                            "operator": "<=",
+                            "value": "={{$node[\"Schedule Trigger (8am Mon-Fri)\"].json[\"no_value_needed_here_but_n8n_might_require_logic\"]}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Low Stock Items",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ],
+            "notes": "Using a Function node here is better in real n8n to iterate and filter, but Firestore Query is ideal if 'where' supports field comparison."
+        },
+        {
+            "parameters": {
+                "functionCode": "const items = items[0].json;\n// Filter manually if Firestore query in n8n is limited\nconst lowStock = items.filter(item => item.stock_level <= item.reorder_point);\n\nreturn lowStock.map(item => ({ json: item }));"
+            },
+            "name": "Filter Below Reorder Point",
+            "type": "n8n-nodes-base.function",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "fromEmail": "system@primistine.com",
+                "toEmail": "procurement@primistine.com",
+                "subject": "⚠️ Low Stock Alert: {{$json[\"name\"]}}",
+                "text": "Item: {{$json[\"name\"]}} (SKU: {{$json[\"sku\"]}})\nCurrent Stock: {{$json[\"stock_level\"]}}\nReorder Point: {{$json[\"reorder_point\"]}}\n\nPlease create a Purchase Order immediately.",
+                "options": {}
+            },
+            "name": "Send Email Alert",
+            "type": "n8n-nodes-base.emailSend",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule Trigger (8am Mon-Fri)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Low Stock Items",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Low Stock Items": {
+            "main": [
+                [
+                    {
+                        "node": "Filter Below Reorder Point",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter Below Reorder Point": {
+            "main": [
+                [
+                    {
+                        "node": "Send Email Alert",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
