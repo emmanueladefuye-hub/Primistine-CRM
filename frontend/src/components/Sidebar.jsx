@@ -2,12 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { NAV_LINKS } from '../lib/nav-links';
 import { useAuth } from '../contexts/AuthContext';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 import primistineLogo from '../assets/primistine-logo.png';
 
 export default function Sidebar({ isOpen, onClose }) {
-    const { currentUser, hasPermission } = useAuth();
+    const { currentUser, logout, hasPermission } = useAuth();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const scrollContainerRef = useRef(null);
     const scrollIntervalRef = useRef(null);
@@ -143,20 +143,54 @@ export default function Sidebar({ isOpen, onClose }) {
 
                 {/* User Mini Profile */}
                 <div className={clsx("p-4 bg-premium-blue-950 border-t border-premium-blue-800 mt-auto overflow-hidden", isCollapsed && "lg:justify-center")}>
-                    <div className={clsx("flex items-center gap-3", isCollapsed && "lg:justify-center")}>
-                        <div className="w-8 h-8 rounded-full bg-premium-gold-500/20 text-premium-gold-500 flex items-center justify-center font-bold border border-premium-gold-500/30 shrink-0">
-                            {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : (currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'U')}
+                    <div className={clsx("flex items-center justify-between", isCollapsed && "lg:justify-center")}>
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-premium-gold-500/20 text-premium-gold-500 flex items-center justify-center font-bold border border-premium-gold-500/30 shrink-0">
+                                {currentUser?.displayName ? currentUser.displayName.charAt(0).toUpperCase() : (currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'U')}
+                            </div>
+                            <div className={clsx(
+                                "overflow-hidden transition-all duration-300",
+                                isCollapsed ? "lg:w-0 lg:opacity-0" : "w-auto opacity-100"
+                            )}>
+                                <p className="text-sm font-medium text-white truncate w-32" title={currentUser?.displayName || 'User'}>
+                                    {currentUser?.displayName || currentUser?.email || 'User'}
+                                </p>
+                                <p className="text-xs text-slate-400">Online</p>
+                            </div>
                         </div>
-                        <div className={clsx(
-                            "overflow-hidden transition-all duration-300",
-                            isCollapsed ? "lg:w-0 lg:opacity-0" : "w-auto opacity-100"
-                        )}>
-                            <p className="text-sm font-medium text-white truncate w-40" title={currentUser?.displayName || 'User'}>
-                                {currentUser?.displayName || currentUser?.email || 'User'}
-                            </p>
-                            <p className="text-xs text-slate-400">Online</p>
-                        </div>
+
+                        {!isCollapsed && (
+                            <button
+                                onClick={() => {
+                                    if (window.confirm("Are you sure you want to log out?")) logout();
+                                }}
+                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+                                title="Log Out"
+                            >
+                                <LogOut size={18} />
+                            </button>
+                        )}
+
+                        {isCollapsed && (
+                            <button
+                                onClick={logout}
+                                title="Log Out"
+                                className="lg:hidden" // Only show mobile if needed, but sidebar is hidden on mobile unless open
+                            />
+                        )}
                     </div>
+
+                    {isCollapsed && (
+                        <button
+                            onClick={() => {
+                                if (window.confirm("Are you sure you want to log out?")) logout();
+                            }}
+                            className="mt-4 w-full flex justify-center p-2 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
+                            title="Log Out"
+                        >
+                            <LogOut size={18} />
+                        </button>
+                    )}
                 </div>
             </div>
         </>
