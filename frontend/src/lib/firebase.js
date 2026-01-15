@@ -1,8 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, clearIndexedDbPersistence, terminate } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import { enableIndexedDbPersistence } from 'firebase/firestore';
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
@@ -23,16 +22,23 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
 
-// Enable Offline Persistence
-enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code == 'failed-precondition') {
-        // Multiple tabs open, persistence can only be enabled in one tab at a a time.
-        console.warn('Firestore persistence failed: Multiple tabs open');
-    } else if (err.code == 'unimplemented') {
-        // The current browser does not support all of the features required to enable persistence
-        console.warn('Firestore persistence not supported');
-    }
-});
+// Auto-clear corrupted IndexedDB cache on first load (prevents b815/ca9 errors)
+const CACHE_CLEARED_KEY = 'firestore_cache_cleared_v1';
+if (!sessionStorage.getItem(CACHE_CLEARED_KEY)) {
+    terminate(db).then(() => {
+        clearIndexedDbPersistence(db).then(() => {
+            console.log('Firestore cache cleared successfully');
+            sessionStorage.setItem(CACHE_CLEARED_KEY, 'true');
+            window.location.reload();
+        }).catch(err => {
+            console.warn('Could not clear Firestore cache:', err.message);
+            sessionStorage.setItem(CACHE_CLEARED_KEY, 'true');
+        });
+    }).catch(err => {
+        console.warn('Could not terminate Firestore:', err.message);
+        sessionStorage.setItem(CACHE_CLEARED_KEY, 'true');
+    });
+}
 
 // Messaging (FCM)
 let messaging;

@@ -95,13 +95,11 @@ function EditLeadModal({ isOpen, onClose, lead, onSave }) {
 
     const saveLead = (extraFields = {}) => {
         const rawValue = parseCurrencyString(formData.value);
-        const formattedValue = rawValue ? `₦${rawValue.toLocaleString()}` : formData.value;
 
         onSave({
             ...formData,
             ...extraFields,
-            value: formattedValue,
-            rawValue,
+            value: rawValue, // Store as number
             lastContact: 'Just now'
         });
         onClose();
@@ -307,7 +305,7 @@ const getStageInfo = (stageId) => {
 export default function LeadDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    // const { getLeadById, updateLead, addNote } = useLeads(); // REMOVED
+    const { moveLeadStage, addNote } = useLeads();
     const [activeTab, setActiveTab] = useState('overview');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -360,20 +358,17 @@ export default function LeadDetailPage() {
                 updatedAt: serverTimestamp()
             };
 
-            // If stage is changing, also complete any pending next action automatically
-            if (updates.stage && updates.stage !== lead.stage && lead.nextAction) {
-                const closureActivity = {
-                    id: Date.now(),
-                    type: 'status',
-                    text: `Completed task: ${lead.nextAction} (Auto-closed via Pipeline update)`,
-                    date: new Date().toLocaleString(),
-                    user: 'Admin'
-                };
-                finalUpdates.nextAction = null;
-                finalUpdates.activities = arrayUnion(closureActivity);
+            // If stage is changing, use moveLeadStage for centralized logic
+            if (updates.stage && updates.stage !== lead.stage) {
+                await moveLeadStage(lead.id, updates.stage);
+                // We still want to update other fields if any, but stage is handled
+                const { stage, ...otherUpdates } = updates;
+                if (Object.keys(otherUpdates).length > 0) {
+                    await updateDoc(docRef, { ...otherUpdates, updatedAt: serverTimestamp() });
+                }
+            } else {
+                await updateDoc(docRef, finalUpdates);
             }
-
-            await updateDoc(docRef, finalUpdates);
 
             // Determine if stage changed for better notification
             if (updates.stage && updates.stage !== lead.stage) {
@@ -484,56 +479,12 @@ export default function LeadDetailPage() {
     const handleLaunchProject = async () => {
         const toastId = toast.loading('Launching project...');
         try {
-            // 1. Prepare Project Data
-            const projectData = {
-                name: `${lead.serviceInterest?.[0] || 'New Project'} for ${lead.name}`,
-                clientId: lead.id,
-                clientName: lead.name,
-                clientInfo: {
-                    name: lead.name,
-                    address: lead.address || 'Address pending',
-                    phone: lead.phone || 'No phone provided'
-                },
-                leadId: lead.id,
-                status: 'Active',
-                phase: 'Planning',
-                progress: 0,
-                health: 'healthy',
-                value: lead.rawValue || 0,
-                systemSpecs: {
-                    serviceType: lead.serviceInterest?.[0] || 'solar',
-                    inverter: '-',
-                    battery: '-',
-                    solar: '-',
-                    value: lead.rawValue || 0
-                },
-                timeline: {
-                    expectedCompletion: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-                },
-                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                createdAt: serverTimestamp(),
-                createdFrom: 'lead'
-            };
-
-            // 2. Add to projects collection
-            const { collection, addDoc } = await import('firebase/firestore');
-            const projectRef = await addDoc(collection(db, 'projects'), projectData);
-
-            toast.success('Project Launched Successfully! 🚀', {
-                id: toastId,
-                style: {
-                    borderRadius: '10px',
-                    background: '#1e1b4b',
-                    color: '#fff',
-                    fontWeight: 'bold'
-                },
-            });
-
-            // 3. Navigate to Project
-            navigate(`/projects/${projectRef.id}`);
+            await createProjectFromLead(lead);
+            toast.success('Project Launched Successfully! 🚀', { id: toastId });
+            navigate('/projects');
         } catch (err) {
             console.error("Failed to launch project", err);
-            toast.error("Failed to create project", { id: toastId });
+            toast.error("Failed to launch project", { id: toastId });
         }
     };
 
@@ -614,7 +565,7 @@ export default function LeadDetailPage() {
                     {lead.stage === 'new' && (
                         <button
                             disabled={!lead.serviceInterest?.[0]}
-                            onClick={() => handleSaveLead({ stage: 'contacted' })}
+                            onClick={() => moveLeadStage(lead.id, 'contacted')}
                             className={clsx(
                                 "flex-1 sm:flex-none px-5 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 text-sm",
                                 !lead.serviceInterest?.[0]
@@ -632,7 +583,7 @@ export default function LeadDetailPage() {
                             onClick={async () => {
                                 const interest = lead.serviceInterest?.[0];
                                 const serviceKey = mapServiceInterestToKey(interest);
-                                await handleSaveLead({ stage: 'audit' });
+                                await moveLeadStage(lead.id, 'audit');
                                 navigate('/audits/new', { state: { leadData: lead, preSelectedService: serviceKey } });
                             }}
                             className={clsx(
@@ -650,7 +601,7 @@ export default function LeadDetailPage() {
                         <div className="flex gap-2 w-full sm:w-auto">
                             <button
                                 disabled={!lead.serviceInterest?.[0]}
-                                onClick={() => handleSaveLead({ stage: 'proposal' })}
+                                onClick={() => moveLeadStage(lead.id, 'proposal')}
                                 className={clsx(
                                     "flex-1 px-5 py-2.5 rounded-xl font-black flex items-center justify-center gap-2 transition-all active:scale-95 text-sm",
                                     !lead.serviceInterest?.[0]
@@ -674,7 +625,7 @@ export default function LeadDetailPage() {
 
                     {lead.stage === 'proposal' && (
                         <button
-                            onClick={() => handleSaveLead({ stage: 'won' })}
+                            onClick={() => moveLeadStage(lead.id, 'won')}
                             className="flex-1 sm:flex-none px-6 py-2.5 bg-green-600 text-white rounded-xl font-black hover:bg-green-700 shadow-lg shadow-green-600/20 flex items-center justify-center gap-2 transition-all active:scale-95 text-sm"
                         >
                             <CheckCircle2 size={18} /> Accept Quote (Win)
@@ -754,7 +705,7 @@ export default function LeadDetailPage() {
                         <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estimated Value</span>
-                                <span className="text-lg font-black text-premium-gold-600 italic tracking-tighter">{lead.value || '₦0.00'}</span>
+                                <span className="text-lg font-black text-premium-gold-600 italic tracking-tighter">₦{Number(lead.value || 0).toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Inbound Source</span>

@@ -9,13 +9,14 @@ import { toast } from 'react-hot-toast';
 import { PIPELINE_STAGES, filterByRange } from '../lib/constants';
 import TimeFilter from '../components/TimeFilter';
 import { useScopedCollection } from '../hooks/useScopedCollection'; // Added this import
-import { updateLead } from '../services/firestore';
+import { useLeads } from '../contexts/LeadsContext';
 import { orderBy } from 'firebase/firestore';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 
 // Helper Component for the Menu - Uses Portal to break out of overflow
 const LeadActionMenu = ({ lead, onClose, anchorEl }) => {
+    const { moveLeadStage } = useLeads();
     const menuRef = useRef(null);
     const [coords, setCoords] = useState({ top: 0, left: 0 });
     const [isDeleting, setIsDeleting] = useState(false);
@@ -45,22 +46,9 @@ const LeadActionMenu = ({ lead, onClose, anchorEl }) => {
 
     const handleStageChange = async (newStageId, stageName) => {
         try {
-            const oldStageId = lead.stage; // Capture old stage before update
-            await updateLead(lead.id, { stage: newStageId });
+            await moveLeadStage(lead.id, newStageId);
 
-            // Import Firestore functions dynamically
-            const {
-                addDoc,
-                collection,
-                serverTimestamp,
-                query,
-                where,
-                getDocs,
-                deleteDoc
-            } = await import('firebase/firestore');
-            const { db } = await import('../lib/firebase');
-
-            // 1. Handle "Move TO Won"
+            // Toast handled central if we want, but keeping UI feedback specific
             if (newStageId === 'won') {
                 toast.success('Lead Won! 🚀 Site Audit is now unlocked.', {
                     style: {
@@ -220,7 +208,7 @@ const LeadCard = ({ lead }) => {
 
             <Link to={`/sales/leads/${lead.id}`} className="block">
                 <h4 className="font-black text-premium-blue-900 group-hover:text-premium-blue-700 transition-colors tracking-tight leading-tight">{lead.name}</h4>
-                <div className="text-sm font-black text-premium-gold-600 mt-1">{lead.value}</div>
+                <div className="text-sm font-black text-premium-gold-600 mt-1">₦{Number(lead.value || 0).toLocaleString()}</div>
             </Link>
 
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50">
@@ -271,7 +259,7 @@ const MobileLeadRow = ({ lead, onAction }) => {
             <div className="flex items-center justify-between pt-3 border-t border-slate-50">
                 <div className="flex flex-col gap-1">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Deal Value</span>
-                    <div className="text-sm font-black text-premium-gold-600 tracking-tight">{lead.value}</div>
+                    <div className="text-sm font-black text-premium-gold-600 tracking-tight">₦{Number(lead.value || 0).toLocaleString()}</div>
                 </div>
                 <div className="flex flex-col gap-1 items-end text-right">
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Pipeline Status</span>
@@ -472,7 +460,7 @@ export default function SalesDashboard() {
                                                         {stage?.name || lead.stage}
                                                     </span>
                                                 </td>
-                                                <td className="py-5 px-6 font-black text-premium-gold-600 italic tracking-tight">{lead.value}</td>
+                                                <td className="py-5 px-6 font-black text-premium-gold-600 italic tracking-tight">₦{Number(lead.value || 0).toLocaleString()}</td>
                                                 <td className="py-5 px-6 text-xs font-bold text-slate-500">{lead.lastContact}</td>
                                                 <td className="py-5 px-8 text-right">
                                                     <div className="relative inline-block">

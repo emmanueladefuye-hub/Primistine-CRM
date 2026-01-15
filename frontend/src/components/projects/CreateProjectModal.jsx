@@ -157,7 +157,8 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
                                 <option value="Planning">Planning</option>
                                 <option value="Procurement">Procurement</option>
                                 <option value="Installation">Installation</option>
-                                <option value="Commissioning">Commissioning</option>
+                                <option value="Testing">Testing</option>
+                                <option value="Handover">Handover</option>
                             </select>
                         </div>
                     </div>

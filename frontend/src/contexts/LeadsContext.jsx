@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useCallback } from 'react';
 import { db } from '../lib/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase/firestore';
+import {
+    collection, addDoc, updateDoc, deleteDoc, doc, orderBy,
+    query, where, getDocs, serverTimestamp, arrayUnion
+} from 'firebase/firestore';
 import { useCollection } from '../hooks/useFirestore';
 import { toast } from 'react-hot-toast';
 // Mocks removed
@@ -30,18 +33,27 @@ export function LeadsProvider({ children }) {
 
     const addLead = async (leadData) => {
         try {
+            const rawValue = typeof leadData.value === 'string'
+                ? parseFloat(leadData.value.replace(/[^0-9.]/g, '')) || 0
+                : Number(leadData.value || 0);
+
             const newLead = {
-                id: Date.now(), // Keep number ID for sorting/compatibility or switch to auto-id? keeping timestamp for now
                 ...leadData,
+                value: rawValue, // Store as number
                 lastContact: 'Just now',
                 activities: [],
                 documents: [],
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                updatedBy: currentUser?.uid || 'system'
             };
-            // We use addDoc but with our own ID if we want, or let Firestore gen one. 
-            // For compatibility with codebase expecting `id` property:
-            await addDoc(collection(db, 'leads'), newLead);
+
+            // Let Firestore generate a random string ID
+            const docRef = await addDoc(collection(db, 'leads'), newLead);
+
+            // If we need the ID in the object for local state (though useCollection handles it), 
+            // we can update it if needed, but usually doc.id is better.
             toast.success('Lead added successfully');
+            return docRef.id;
         } catch (err) {
             console.error('Error adding lead:', err);
             toast.error('Failed to add lead');
@@ -92,16 +104,6 @@ export function LeadsProvider({ children }) {
         };
 
         try {
-            // We need to get the current activities to append, or use arrayUnion (safer)
-            // But arrayUnion requires matching object structure.
-            // For simplicity, let's fetch-update or assume we have the lead in 'leads'
-            // BUT 'leads' is outside useCallback.
-            // Safer to just use arrayUnion from firestore if we import it, or just read the doc.
-            // Let's use arrayUnion for atomic updates if possible, or just standard read-modify-write via known state if simpler for this migration.
-            // Actually, we can just call updateLead with the new array if we had the lead.
-            // But we don't want to depend on 'leads' in useCallback.
-            // Let's use arrayUnion.
-            const { arrayUnion } = await import('firebase/firestore');
             const docRef = doc(db, 'leads', String(leadId));
             await updateDoc(docRef, {
                 activities: arrayUnion(newActivity)
@@ -118,7 +120,18 @@ export function LeadsProvider({ children }) {
     // Helper to create client from lead
     const createClientFromLead = useCallback(async (lead) => {
         try {
-            // Use the functionality from ClientsContext
+            // 1. Check if client with this leadId exists
+            const qLeadId = query(collection(db, 'clients'), where('leadId', '==', lead.id));
+            const snapLeadId = await getDocs(qLeadId);
+            if (!snapLeadId.empty) return;
+
+            // 2. Check if client with this email exists
+            if (lead.email) {
+                const qEmail = query(collection(db, 'clients'), where('email', '==', lead.email));
+                const snapEmail = await getDocs(qEmail);
+                if (!snapEmail.empty) return;
+            }
+
             await addClient({
                 name: lead.name,
                 company: lead.company,
@@ -130,10 +143,9 @@ export function LeadsProvider({ children }) {
                 leadId: lead.id,
                 dateJoined: new Date().toISOString().split('T')[0],
                 totalProjects: 1,
-                value: lead.value || '₦0',
+                value: lead.value || 0,
                 notes: lead.notes || ''
             });
-            // Toast handled in context
 
         } catch (error) {
             console.error('Error creating client from lead:', error);
@@ -143,25 +155,49 @@ export function LeadsProvider({ children }) {
     // Helper to create project from lead
     const createProjectFromLead = useCallback(async (lead) => {
         try {
-            // Use functionality from ProjectsContext
+            const q = query(collection(db, 'projects'), where('leadId', '==', lead.id));
+            const snap = await getDocs(q);
+
+            if (!snap.empty) {
+                console.log('Project already exists for this lead');
+                return;
+            }
+
+            const serviceType = lead.serviceInterest?.[0] || 'Solar';
+
             await addProject({
                 leadId: lead.id,
-                name: `${lead.name} - Project`,
+                name: `${serviceType} for ${lead.name}`,
                 client: lead.company || lead.name,
+                clientInfo: {
+                    name: lead.name,
+                    address: lead.address || 'Address pending',
+                    phone: lead.phone || 'No phone provided'
+                },
                 status: 'In Progress',
                 phase: 'Planning',
                 progress: 0,
+                health: 'healthy',
                 startDate: new Date().toISOString().split('T')[0],
-                dueDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // +90 days
-                budget: lead.value || '₦0',
-                spent: '₦0',
+                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                budget: lead.value || 0,
+                value: lead.value || 0,
+                spent: 0,
+                systemSpecs: {
+                    serviceType: serviceType.toLowerCase(),
+                    inverter: '-',
+                    battery: '-',
+                    solar: '-',
+                    value: lead.value || 0
+                },
                 team: [],
                 tasks: { todo: [], inProgress: [], completed: [] },
                 manager: currentUser?.displayName || 'Unassigned',
                 description: `Project auto-created from won lead. Notes: ${lead.notes || 'None'}`,
-                priority: 'High'
+                priority: 'High',
+                createdAt: serverTimestamp(),
+                createdFrom: 'lead'
             });
-            // Toast handled in context
 
         } catch (error) {
             console.error('Error creating project from lead:', error);
@@ -170,46 +206,23 @@ export function LeadsProvider({ children }) {
 
     // Move lead to a different stage
     const moveLeadStage = useCallback(async (id, newStage) => {
-        // Need to find the lead to check logic
-        // We can't easily find it without 'leads' dependency.
-        // But we can just do the update. 
-        // Logic about "if moved to won, create project" is tricky without reading the current stage.
-        // We really need 'leads' here or read the doc.
-        // Let's assume we pass the full lead object or just fetch it. 
-        // For now, let's trust the logic in the UI calling this might pass the info? 
-        // No, the signature is (id, newStage).
-        // I will change signature to (lead, newStage) in the UI later? 
-        // Or better: read from the 'leads' array available in the component usually?
-        // Actually, 'leads' IS available in the context scope (it's state).
-        // But using it in useCallback adds it as dependency, causing recreation of the function on every leads change.
-        // That's acceptable for this size of app.
-
-        // However, I can't access 'leads' inside this function if I define it outside the render or without dep.
-        // The previous code had leads as dep. So I will keep it.
-
-        // Wait, I can't access "leads" variable inside this useCallback if it's defined before "leads" is defined or if "leads" comes from useCollection which is inside the component.
-        // I should define this function inside the component.
-    }, []);
-
-    // Re-defining moveLeadStage inside the component body
-    const moveLeadStageContext = async (id, newStage) => {
         if (!leads) return;
         const lead = leads.find(l => String(l.id) === String(id));
         if (!lead) return;
 
+        // Trigger conversion ONLY when moving to 'won' from a non-won stage
         if (newStage === 'won' && lead.stage !== 'won') {
-            await createProjectFromLead(lead);
             await createClientFromLead(lead);
+            await createProjectFromLead(lead);
         }
 
         if (lead.stage !== newStage) {
             const oldStageName = PIPELINE_STAGES.find(s => s.id === lead.stage)?.name || lead.stage;
             const newStageName = PIPELINE_STAGES.find(s => s.id === newStage)?.name || newStage;
-            addActivity(id, 'status', `Moved from ${oldStageName} to ${newStageName}`);
+            await addActivity(id, 'status', `Moved from ${oldStageName} to ${newStageName}`);
+            await updateLead(id, { stage: newStage, lastContact: 'Just now' });
         }
-
-        await updateLead(id, { stage: newStage, lastContact: 'Just now' });
-    };
+    }, [leads, createClientFromLead, createProjectFromLead, addActivity, updateLead]);
 
     const getLeadById = (id) => {
         if (!leads) return null;
@@ -224,7 +237,9 @@ export function LeadsProvider({ children }) {
         <LeadsContext.Provider value={{
             leads, loading, error,
             addLead, updateLead, deleteLead,
-            moveLeadStage: moveLeadStageContext,
+            moveLeadStage,
+            createClientFromLead,
+            createProjectFromLead,
             resetLeads, addActivity, addNote,
             pipelineStages: PIPELINE_STAGES,
             getLeadById

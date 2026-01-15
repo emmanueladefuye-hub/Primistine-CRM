@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 import {
     collection,
     addDoc,
@@ -6,11 +6,10 @@ import {
     deleteDoc,
     doc,
     serverTimestamp,
-    onSnapshot,
-    query,
     orderBy
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useScopedCollection } from '../hooks/useScopedCollection';
 import { toast } from 'react-hot-toast';
 
 const IssuesContext = createContext();
@@ -20,27 +19,8 @@ export function useIssues() {
 }
 
 export function IssuesProvider({ children }) {
-    const [issues, setIssues] = useState([]);
-    const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        const q = query(collection(db, 'project_issues'), orderBy('createdAt', 'desc'));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const issueData = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setIssues(issueData);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching issues:", error);
-            toast.error("Failed to load operational issues.");
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []);
+    const issuesQuery = React.useMemo(() => [orderBy('createdAt', 'desc')], []);
+    const { data: issues, loading, error } = useScopedCollection('project_issues', issuesQuery);
 
     const addIssue = async (issueData) => {
         try {

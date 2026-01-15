@@ -105,6 +105,10 @@ export function InventoryProvider({ children }) {
         }
     };
 
+    // 4. Inventory Valuation (Sum of price * stock)
+    const totalInventoryValue = inventory ? inventory.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.stock || 0)), 0) : 0;
+    const totalInventoryDisplay = `₦${(totalInventoryValue / 1000000).toFixed(2)}M`;
+
     const getItemById = (id) => {
         if (!inventory) return null;
         return inventory.find(item => String(item.id) === String(id));
@@ -115,7 +119,12 @@ export function InventoryProvider({ children }) {
     };
 
     return (
-        <InventoryContext.Provider value={{ inventory, loading, error, addItem, updateItem, updateStock, getItemById, deleteItem, resetInventory }}>
+        <InventoryContext.Provider value={{
+            inventory, loading, error,
+            addItem, updateItem, updateStock,
+            getItemById, deleteItem, resetInventory,
+            totalInventoryValue, totalInventoryDisplay
+        }}>
             {children}
         </InventoryContext.Provider>
     );

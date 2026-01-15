@@ -13,12 +13,13 @@ import { toast } from 'react-hot-toast';
 const AuthContext = createContext();
 
 // ⚠️ BOOTSTRAP MODE: Set to TRUE to allow the first admin to be created based on email
-// In production, set this to false or use environment variable
-// ⚠️ BOOTSTRAP MODE: Set to TRUE to allow the first admin to be created based on email
-// In production, set this to false or use environment variable
-const BOOTSTRAP_MODE = false;
-// REPLACE WITH YOUR EMAIL
-const FOUNDER_EMAILS = [];
+const BOOTSTRAP_MODE = true;
+// ADD NEW FOUNDER EMAILS HERE
+const FOUNDER_EMAILS = [
+    'emmanueladefuye@gmail.com',
+    'admin@primistine.com',
+    'primistine.electric@gmail.com'
+];
 
 export function useAuth() {
     return useContext(AuthContext);

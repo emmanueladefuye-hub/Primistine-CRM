@@ -460,11 +460,19 @@ export default function QuoteBuilder() {
                                             <span className="amount currency">₦{subtotal.toLocaleString()}</span>
                                         </div>
                                         <div className="cost-row">
-                                            <span className="cost-label">Logistics</span>
-                                            <span className="amount currency">₦{laborCost.toLocaleString()}</span>
+                                            <span className="cost-label">Logistics & Installation</span>
+                                            <div className="flex items-center gap-1">
+                                                <span className="text-slate-400 text-xs">₦</span>
+                                                <input
+                                                    type="number"
+                                                    value={laborCost}
+                                                    onChange={(e) => setLaborCost(Number(e.target.value))}
+                                                    className="w-24 p-1 text-right border border-slate-200 rounded bg-slate-50 text-xs font-bold"
+                                                />
+                                            </div>
                                         </div>
                                         <div className="cost-row">
-                                            <span className="cost-label">Expert Service</span>
+                                            <span className="cost-label">VAT (7.5%)</span>
                                             <span className="amount currency">₦{vat.toLocaleString()}</span>
                                         </div>
                                         <div className="cost-row total">

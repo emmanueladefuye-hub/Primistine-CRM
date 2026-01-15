@@ -16,19 +16,24 @@ export default function FinanceDashboard() {
     // Live Data
     const { invoices, loading } = useInvoices();
 
-    // Derived Metrics
+    const parseValue = (val) => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+        return 0;
+    };
+
     // 1. Total Revenue (Sum of PAID invoices)
     const paidInvoices = invoices.filter(inv => inv.status === 'Paid');
-    const totalRevenueValue = paidInvoices.reduce((sum, inv) => sum + (parseFloat(inv.subtotal || inv.total || 0)), 0);
+    const totalRevenueValue = paidInvoices.reduce((sum, inv) => sum + parseValue(inv.subtotal || inv.total), 0);
     const totalRevenue = `₦${(totalRevenueValue / 1000000).toFixed(2)}M`;
 
     // 2. Outstanding (Sum of PENDING/OVERDUE)
     const pendingInvoices = invoices.filter(inv => inv.status === 'Pending' || inv.status === 'Overdue');
-    const totalOutstandingValue = pendingInvoices.reduce((sum, inv) => sum + (parseFloat(inv.subtotal || inv.total || 0)), 0);
+    const totalOutstandingValue = pendingInvoices.reduce((sum, inv) => sum + parseValue(inv.subtotal || inv.total), 0);
     const totalOutstanding = `₦${(totalOutstandingValue / 1000000).toFixed(2)}M`;
 
-    // 3. Fake Expenses (for now, 60% of revenue to show realistic data)
-    const totalExpensesValue = totalRevenueValue * 0.6;
+    // 3. Expenses (0 for now as we lack an expense collection)
+    const totalExpensesValue = 0;
     const totalExpenses = `₦${(totalExpensesValue / 1000000).toFixed(2)}M`;
 
     // 4. Net Profit
@@ -43,9 +48,9 @@ export default function FinanceDashboard() {
         const month = date.toLocaleString('default', { month: 'short' });
         if (!chartDataMap[month]) chartDataMap[month] = { month, revenue: 0, expenses: 0 };
         if (inv.status === 'Paid') {
-            const amount = parseFloat(inv.subtotal || inv.total || 0);
+            const amount = parseValue(inv.subtotal || inv.total);
             chartDataMap[month].revenue += amount;
-            chartDataMap[month].expenses += (amount * 0.6); // Simulated
+            chartDataMap[month].expenses += 0; // Real expense tracking needed
         }
     });
     // Convert map to array and sorting can be tricky with just month names, 

@@ -112,14 +112,61 @@ service cloud.firestore {
       allow update: if isAdmin() || isManager() || (hasRole('sales_rep') && isResourceOwner() && resource.data.status == 'Draft');
       allow delete: if isAdmin();
     }
+
+    // 7. PROJECT ISSUES
+    match /project_issues/{issueId} {
+      // Everyone can read assigned or all if Admin/Manager.
+      allow read: if isAuthenticated(); 
+      allow create: if isAuthenticated(); // Field staff report issues
+      allow update: if isAdmin() || isManager() || isResourceOwner(); 
+      allow delete: if isAdmin();
+    }
     
-    // 7. INVENTORY
+    // 9. INVENTORY
     match /inventory/{itemId} {
       allow read: if isAuthenticated(); // Everyone needs to see products
       allow write: if hasAnyRole(['super_admin', 'admin', 'inventory_manager']);
     }
 
-    // 8. LOGS / ACTIVITY
+    // 10. TEAM MEMBERS
+    match /team_members/{memberId} {
+      // Everyone can read team directory
+      allow read: if isAuthenticated();
+      // Only Admin/Super Admin can write
+      allow write: if isAdmin();
+    }
+
+    // 11. DEPLOYMENTS (Engineer Scheduling)
+    match /deployments/{deploymentId} {
+      // Everyone can read schedules
+      allow read: if isAuthenticated();
+      // Only Admin/Super Admin can create/update/delete
+      allow write: if isAdmin();
+    }
+
+    // 12. CLIENTS
+    match /clients/{clientId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() || isManager() || hasRole('sales_rep');
+      allow update: if isAdmin() || isManager() || (hasRole('sales_rep') && isResourceOwner());
+      allow delete: if isAdmin();
+    }
+
+    // 13. INVOICES
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin() || isManager() || hasRole('finance');
+      allow update: if isAdmin() || isManager() || hasRole('finance');
+      allow delete: if isAdmin();
+    }
+
+    // 14. SCHEDULED VISITS (Legacy - will be migrated to deployments)
+    match /scheduled_visits/{visitId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isManager();
+    }
+
+    // 15. LOGS / ACTIVITY
     match /logs/{logId} {
       allow read: if isAdmin();
       allow create: if isAuthenticated(); // App writes logs

@@ -359,6 +359,46 @@
 - `created_at` (timestamp)
 
 ---
+
+### `team_members`
+**Purpose**: Engineer and staff directory for deployment management.
+- `id` (string): Auto-ID
+- `name` (string)
+- `email` (string)
+- `phone` (string)
+- `role` (string): 'Engineer', 'Technician', 'Lead Engineer', etc.
+- `dept` (string): 'Engineering', 'Sales', 'Operations'
+- `status` (string): 'Active' | 'Inactive'
+- `availability` (string): 'Available' | 'On Assignment' | 'On Leave' | 'Off Duty'
+- `currentDeploymentId` (reference): Active deployment if any
+- `skills` (array): ['Solar', 'Wiring', 'CCTV', 'Inverter', 'Battery']
+- `rating` (number): 1-5 performance score
+- `completedDeployments` (number): Total completed jobs
+- `emergencyContact` (map): { name, phone, relation }
+- `createdAt` (timestamp)
+
+### `deployments`
+**Purpose**: Scheduled on-site engineer work assignments.
+- `id` (string): Auto-ID
+- `title` (string): e.g., "Solar Installation - Lekki Phase 1"
+- `type` (string): 'Audit' | 'Installation' | 'Maintenance' | 'Inspection' | 'Follow-up'
+- `projectId` (reference): Optional link to project
+- `auditId` (reference): Optional link to audit
+- `clientInfo` (map): { name, address, phone }
+- `assignedEngineers` (array): [{ id, name, role }]
+- `leadEngineerId` (string): Primary engineer UID
+- `scheduledDate` (timestamp)
+- `scheduledTimeStart` (string): e.g., "09:00"
+- `scheduledTimeEnd` (string): e.g., "17:00"
+- `status` (string): 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled' | 'Rescheduled'
+- `priority` (string): 'Low' | 'Normal' | 'High' | 'Urgent'
+- `notes` (string)
+- `location` (geopoint): Site coordinates
+- `createdBy` (string): UID of creator
+- `createdAt` (timestamp)
+- `updatedAt` (timestamp)
+
+---
 **Note for AppSheet**: 
 - Connect each collection as a Table.
 - Use `id` as the Key.

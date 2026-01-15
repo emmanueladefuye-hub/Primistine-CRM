@@ -27,6 +27,11 @@ const FIELD_MAP = {
         own: 'reportedBy',
         assigned: 'assignedTo',
         team: 'teamId'
+    },
+    project_issues: {
+        own: 'reportedBy',
+        assigned: 'assignedTo',
+        team: 'teamId'
     }
 };
 

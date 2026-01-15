@@ -216,10 +216,36 @@ export default function ReportIssueModal({ isOpen, onClose, initialData = {} }) 
 
                     {/* Photo Upload Stub */}
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Photos</label>
-                        <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer">
-                            <Camera size={24} className="mb-2 opacity-50" />
-                            <span className="text-xs font-medium">Click to upload photos</span>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Photos ({photos.length})</label>
+                        <div className="space-y-3">
+                            <label className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-slate-400 hover:bg-slate-50 hover:border-slate-300 transition-colors cursor-pointer group">
+                                <Camera size={24} className="mb-2 opacity-50 group-hover:opacity-100 transition-opacity" />
+                                <span className="text-xs font-medium">Click to upload photos</span>
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                        const files = Array.from(e.target.files || []);
+                                        setPhotos(prev => [...prev, ...files.map(f => f.name)]);
+                                        toast.success(`${files.length} photo(s) selected`);
+                                    }}
+                                />
+                            </label>
+
+                            {photos.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {photos.map((p, i) => (
+                                        <div key={i} className="px-3 py-1 bg-slate-100 rounded-lg text-xs font-medium text-slate-600 flex items-center gap-2">
+                                            {p}
+                                            <button type="button" onClick={() => setPhotos(photos.filter((_, idx) => idx !== i))} className="hover:text-red-500 text-slate-400">
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </div>
 

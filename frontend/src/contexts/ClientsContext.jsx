@@ -21,8 +21,22 @@ export function ClientsProvider({ children }) {
 
     const addClient = async (newClient) => {
         try {
-            await addDoc(collection(db, 'clients'), newClient);
+            // Uniqueness Check: Only add if email or phone doesn't already exist
+            if (clients) {
+                const existing = clients.find(c =>
+                    (newClient.email && c.email === newClient.email) ||
+                    (newClient.phone && c.phone === newClient.phone)
+                );
+                if (existing) {
+                    console.warn('Client already exists with this email/phone:', existing.id);
+                    toast.error('Client with this email/phone already exists');
+                    return existing; // Return existing client instead of creating duplicate
+                }
+            }
+
+            const docRef = await addDoc(collection(db, 'clients'), newClient);
             toast.success('Client added successfully');
+            return { id: docRef.id, ...newClient };
         } catch (err) {
             console.error('Error adding client:', err);
             toast.error('Failed to add client');

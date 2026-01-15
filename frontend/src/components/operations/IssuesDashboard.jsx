@@ -23,7 +23,7 @@ export default function IssuesDashboard() {
     const listScroll = useAutoScroll();
 
     // Derived Data & Formatting
-    const formattedIssues = issues.map(issue => ({
+    const formattedIssues = (issues || []).map(issue => ({
         ...issue,
         timeAgo: calculateTimeAgo(issue.createdAt),
         isOverdue: isOverdue(issue.createdAt),
@@ -108,7 +108,7 @@ export default function IssuesDashboard() {
                                         label={stat}
                                         active={filterStatus === stat}
                                         onClick={() => setFilterStatus(stat)}
-                                        count={stat === 'All' ? issues.length : issues.filter(i => i.status === stat).length}
+                                        count={stat === 'All' ? (issues || []).length : (issues || []).filter(i => i.status === stat).length}
                                     />
                                 ))}
                             </div>
@@ -124,7 +124,7 @@ export default function IssuesDashboard() {
                                         label={sev}
                                         active={filterSeverity === sev}
                                         onClick={() => setFilterSeverity(sev)}
-                                        count={sev === 'All' ? issues.length : issues.filter(i => i.severity === sev).length}
+                                        count={sev === 'All' ? (issues || []).length : (issues || []).filter(i => i.severity === sev).length}
                                     />
                                 ))}
                             </div>

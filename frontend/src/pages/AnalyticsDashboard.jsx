@@ -36,7 +36,13 @@ export default function AnalyticsDashboard() {
         const wonLeads = leads.filter(l => l.stage === 'won' || l.status === 'won').length;
         const conversionRate = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
 
-        const totalValue = leads.reduce((sum, l) => sum + (l.rawValue || 0), 0);
+        const parseValue = (val) => {
+            if (typeof val === 'number') return val;
+            if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+            return 0;
+        };
+
+        const totalValue = leads.reduce((sum, l) => sum + parseValue(l.value || l.rawValue), 0);
         const avgDealSize = totalLeads > 0 ? (totalValue / totalLeads) : 0;
 
         // 4. Service Distribution
@@ -216,7 +222,7 @@ export default function AnalyticsDashboard() {
                             <p className="text-sm text-slate-500 mb-1">Conversion Rate</p>
                             <div className="flex items-center gap-2">
                                 <p className="text-2xl font-bold text-slate-800">
-                                    {leads.length ? Math.round((leads.filter(l => l.status === 'won').length / leads.length) * 100) : 0}%
+                                    {leads.length ? Math.round((leads.filter(l => l.stage === 'won').length / leads.length) * 100) : 0}%
                                 </p>
                                 <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">Healthy</span>
                             </div>

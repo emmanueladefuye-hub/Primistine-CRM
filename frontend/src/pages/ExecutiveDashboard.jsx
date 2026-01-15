@@ -19,13 +19,13 @@ const MetricCard = ({ title, value, change, trendLabel, icon: Icon, isGold = fal
                 isGold ? "hover:shadow-premium-gold-900/5" : "hover:shadow-premium-blue-900/5"
             )}
         >
-            <div>
-                <p className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] leading-none mb-3">{title}</p>
-                <h3 className="text-2xl font-black text-premium-blue-900 tracking-tight">{value}</h3>
+            <div className="min-w-0 flex-1 pr-4">
+                <p className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] leading-none mb-3 truncate">{title}</p>
+                <h3 className="text-2xl font-black text-premium-blue-900 tracking-tight truncate" title={value}>{value}</h3>
                 {(change !== undefined && change !== null) && (
-                    <div className={clsx("text-[10px] font-black uppercase tracking-wider mt-2 flex items-center gap-1.5", change >= 0 ? "text-emerald-600" : "text-red-500")}>
+                    <div className={clsx("text-[10px] font-black uppercase tracking-wider mt-2 flex items-center gap-1.5 truncate", change >= 0 ? "text-emerald-600" : "text-red-500")}>
                         <TrendingUp size={12} className={change < 0 ? "rotate-180" : ""} />
-                        <span>{change > 0 ? '+' : ''}{change}% {trendLabel}</span>
+                        <span className="truncate">{change > 0 ? '+' : ''}{change}% {trendLabel}</span>
                     </div>
                 )}
             </div>
@@ -100,20 +100,29 @@ export default function ExecutiveDashboard() {
     const previousFilteredLeads = filterByRange(leads, timeRange, previousDate);
 
     // 1. Revenue
+    const parseValue = (val) => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+        return 0;
+    };
+
     const revenueValue = filteredLeads
         .filter(l => l.stage === 'won')
-        .reduce((sum, lead) => sum + (lead.rawValue || 0), 0);
+        .reduce((sum, lead) => sum + parseValue(lead.value || lead.rawValue), 0);
     const totalRevenue = `₦${revenueValue.toLocaleString()}`;
 
     // Previous Revenue
     const previousRevenueValue = previousFilteredLeads
         .filter(l => l.stage === 'won')
-        .reduce((sum, lead) => sum + (lead.rawValue || 0), 0);
+        .reduce((sum, lead) => sum + parseValue(lead.value || lead.rawValue), 0);
 
     // Revenue Trend
-    const revenueChange = previousRevenueValue === 0
-        ? (revenueValue > 0 ? 100 : 0)
-        : Math.round(((revenueValue - previousRevenueValue) / previousRevenueValue) * 100);
+    let revenueChange = 0;
+    if (previousRevenueValue > 0) {
+        revenueChange = Math.round(((revenueValue - previousRevenueValue) / previousRevenueValue) * 100);
+    } else if (revenueValue > 0) {
+        revenueChange = 100;
+    }
 
     // 2. Active Projects (Stock: Current state, ignore time filter)
     const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
@@ -160,7 +169,8 @@ export default function ExecutiveDashboard() {
     const wonLeads = filteredLeads.filter(l => l.stage === 'won').length;
     const totalLeadsCount = filteredLeads.length;
     const conversionRate = totalLeadsCount > 0 ? Math.round((wonLeads / totalLeadsCount) * 100) : 0;
-    const avgDealValueRaw = totalLeadsCount > 0 ? (filteredLeads.reduce((sum, l) => sum + (l.rawValue || 0), 0) / totalLeadsCount) : 0;
+    const totalValueInPeriod = filteredLeads.reduce((sum, l) => sum + parseValue(l.value || l.rawValue), 0);
+    const avgDealValueRaw = totalLeadsCount > 0 ? (totalValueInPeriod / totalLeadsCount) : 0;
     const avgValue = `₦${avgDealValueRaw.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
     // Top Source

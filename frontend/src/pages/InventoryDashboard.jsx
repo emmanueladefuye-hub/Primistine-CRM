@@ -9,7 +9,7 @@ import { useInventory } from '../contexts/InventoryContext';
 import TimeFilter from '../components/TimeFilter';
 
 export default function InventoryDashboard() {
-    const { inventory, updateStock, loading } = useInventory();
+    const { inventory, updateStock, loading, totalInventoryDisplay } = useInventory();
     const [selectedMovementProduct, setSelectedMovementProduct] = useState(null); // For Stock Movement
     const [selectedDetailProduct, setSelectedDetailProduct] = useState(null); // For Product Detail
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -18,8 +18,8 @@ export default function InventoryDashboard() {
     const [timeRange, setTimeRange] = useState('day');
     const [referenceDate, setReferenceDate] = useState(new Date().toISOString().split('T')[0]);
 
-    // Mock multiplier for valuation
-    const multiplier = timeRange === 'day' ? 0.04 : timeRange === 'week' ? 0.23 : timeRange === 'year' ? 12 : 1;
+    // Valuation is handled by context now
+    // Removed mock multipliers
 
     const handleStockUpdate = async ({ type, quantity, productId, reference, notes }) => {
         const adjustment = type === 'in' ? quantity : -quantity;
@@ -101,7 +101,7 @@ export default function InventoryDashboard() {
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-blue-900/5 transition-all">
                     <div>
                         <p className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] leading-none mb-3">Total Valuation</p>
-                        <h3 className="text-2xl font-black text-premium-blue-900 tracking-tight">₦{(48.5 * multiplier).toFixed(1)}M</h3>
+                        <h3 className="text-2xl font-black text-premium-blue-900 tracking-tight">{totalInventoryDisplay}</h3>
                     </div>
                     <div className="p-4 bg-blue-50 text-premium-blue-600 rounded-2xl group-hover:scale-110 transition-transform"><Package size={24} strokeWidth={2.5} /></div>
                 </div>
@@ -115,7 +115,7 @@ export default function InventoryDashboard() {
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-amber-900/5 transition-all">
                     <div>
                         <p className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] leading-none mb-3">Pending Orders</p>
-                        <h3 className="text-2xl font-black text-premium-gold-600 tracking-tight">12</h3>
+                        <h3 className="text-2xl font-black text-premium-gold-600 tracking-tight">0</h3>
                     </div>
                     <div className="p-4 bg-amber-50 text-premium-gold-600 rounded-2xl group-hover:scale-110 transition-transform"><ShoppingCart size={24} strokeWidth={2.5} /></div>
                 </div>

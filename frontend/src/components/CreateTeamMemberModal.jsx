@@ -19,10 +19,12 @@ export default function CreateTeamMemberModal({ isOpen, onClose }) {
         e.preventDefault();
         setLoading(true);
         try {
+            console.log('Form data being submitted:', formData);
             await addMember({
                 ...formData,
                 photo: null // Placeholder for now
             });
+            console.log('Team member added successfully, closing modal');
             onClose();
             // Reset form
             setFormData({
@@ -33,7 +35,8 @@ export default function CreateTeamMemberModal({ isOpen, onClose }) {
                 status: 'Active'
             });
         } catch (error) {
-            console.error(error);
+            console.error('Failed to add team member:', error);
+            // Don't close modal on error - let user try again
         } finally {
             setLoading(false);
         }
