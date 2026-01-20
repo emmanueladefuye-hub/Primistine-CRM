@@ -1,0 +1,110 @@
+{
+    "name": "Personalized Outreach Generator",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "generate-outreach",
+                "options": {}
+            },
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "={{$node[\"Webhook\"].json[\"body\"][\"website\"]}}",
+                "responseFormat": "string",
+                "options": {}
+            },
+            "name": "Fetch Website",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "mode": "html",
+                "html": "={{$node[\"Fetch Website\"].json}}",
+                "options": {}
+            },
+            "name": "HTML to Text",
+            "type": "n8n-nodes-base.htmlToMarkdown",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://openrouter.ai/api/v1/chat/completions",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_OPENROUTER_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"google/gemini-flash-1.5-exp\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a B2B sales expert. Draft a personalized 3-sentence intro email for Primistine Electric (Solar/CCTV). Connect our services to what this company does. website_text: '{{$node[\"HTML to Text\"].json}}'\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "name": "AI Draft",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Fetch Website",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Fetch Website": {
+            "main": [
+                [
+                    {
+                        "node": "HTML to Text",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "HTML to Text": {
+            "main": [
+                [
+                    {
+                        "node": "AI Draft",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

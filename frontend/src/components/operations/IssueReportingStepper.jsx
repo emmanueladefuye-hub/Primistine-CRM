@@ -64,7 +64,7 @@ export default function IssueReportingStepper({ onCancel }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col md:max-w-md md:mx-auto md:shadow-2xl md:relative md:h-full md:rounded-xl overflow-hidden">
+        <div className="fixed inset-0 z-[100] bg-white flex flex-col md:max-w-md md:mx-auto md:shadow-2xl md:relative md:h-full md:rounded-xl overflow-hidden">
 
             {/* HEADER */}
             {currentStep < 4 && (

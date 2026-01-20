@@ -1,0 +1,149 @@
+{
+    "name": "Weather Risk Monitor",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 7 * * *"
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule (7AM Daily)",
+            "type": "n8n-nodes-base.schedule",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "projects",
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "status",
+                            "operator": "==",
+                            "value": "Active"
+                        },
+                        {
+                            "field": "phase",
+                            "operator": "==",
+                            "value": "Installation"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Active Installations",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "=https://api.openweathermap.org/data/2.5/forecast?q={{$json[\"location\"] || \"Lagos,NG\"}}&appid=YOUR_OWM_API_KEY",
+                "options": {}
+            },
+            "name": "Check Weather",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "field": "weatherRisk",
+                "value": "={{$json[\"list\"][0][\"weather\"][0][\"main\"] === \"Rain\" ? { \"alert\": \"Rain Forecasted\", \"severity\": \"high\" } : { \"alert\": \"Clear Skies\", \"severity\": \"none\" } }}"
+            },
+            "name": "Analyze Risk",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "projectId": "primistine-crm",
+                "collection": "projects",
+                "documentId": "={{$node[\"Get Active Installations\"].json[\"id\"]}}",
+                "options": {
+                    "columns": {
+                        "mappingMode": "defineBelow",
+                        "value": {
+                            "weatherRisk": "={{$node[\"Analyze Risk\"].json[\"weatherRisk\"]}}"
+                        }
+                    }
+                }
+            },
+            "name": "Update Project Risk",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                1050,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule (7AM Daily)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Active Installations",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Active Installations": {
+            "main": [
+                [
+                    {
+                        "node": "Check Weather",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check Weather": {
+            "main": [
+                [
+                    {
+                        "node": "Analyze Risk",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Analyze Risk": {
+            "main": [
+                [
+                    {
+                        "node": "Update Project Risk",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

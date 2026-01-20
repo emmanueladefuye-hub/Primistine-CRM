@@ -247,7 +247,7 @@ export default function SiteAuditFAB({ currentStep, data, updateData, showToast 
         <>
             {/* Quick Note Modal */}
             {showNoteModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div onClick={(e) => e.target === e.currentTarget && setShowNoteModal(false)} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="font-bold text-lg text-slate-800">Add Quick Note</h3>

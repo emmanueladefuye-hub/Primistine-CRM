@@ -1,0 +1,125 @@
+{
+    "name": "Daily Standup Aggregator",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 18 * * 1-5"
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule (6PM Mon-Fri)",
+            "type": "n8n-nodes-base.schedule",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "activities",
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "timestamp",
+                            "operator": ">",
+                            "value": "={{$today}}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Today's Logs",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://openrouter.ai/api/v1/chat/completions",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_OPENROUTER_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"google/gemini-flash-1.5-exp\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Summarize these engineering logs into a daily executive briefing. Highlight progress, blockers, and sales wins. Logs: {{$node[\"Get Today's Logs\"].json}}\"\n    }\n  ]\n}",
+                "options": {}
+            },
+            "name": "AI Summarize",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "content": "={{$node[\"AI Summarize\"].json[\"choices\"][0][\"message\"][\"content\"]}}",
+                "webhookUrl": "YOUR_DISCORD_WEBHOOK_URL"
+            },
+            "name": "Discord Notification",
+            "type": "n8n-nodes-base.discord",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule (6PM Mon-Fri)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Today's Logs",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Today's Logs": {
+            "main": [
+                [
+                    {
+                        "node": "AI Summarize",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Summarize": {
+            "main": [
+                [
+                    {
+                        "node": "Discord Notification",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

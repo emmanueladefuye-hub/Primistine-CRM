@@ -379,7 +379,7 @@ export default function AuditDetail() {
         <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 pb-20 relative">
             {/* Move Confirmation Modal */}
             {showMoveModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
                     <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4 animate-in zoom-in duration-200">
                         <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto text-premium-blue-600">
                             <CheckCircle2 size={24} />

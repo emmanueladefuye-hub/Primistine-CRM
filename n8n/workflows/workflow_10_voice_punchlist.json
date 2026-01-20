@@ -1,0 +1,131 @@
+{
+    "name": "Auto-Punch List Generator",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "voice-punchlist",
+                "options": {}
+            },
+            "name": "Webhook (Audio Upload)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "url": "https://api.openai.com/v1/audio/transcriptions",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_OPENROUTER_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "multipart-form-data",
+                "bodyParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "model",
+                            "value": "whisper-1"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Whisper Transcribe",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://openrouter.ai/api/v1/chat/completions",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_OPENROUTER_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"google/gemini-flash-1.5-exp\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Extract actionable tasks from this site visit voice note. Return JSON: { \\\"tasks\\\": [ { \\\"title\\\": \\\"Buy 4mm cable\\\", \\\"severity\\\": \\\"HIGH\\\" } ] }\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{$node[\"Whisper Transcribe\"].json[\"text\"]}}\"\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+                "options": {}
+            },
+            "name": "AI Task Extraction",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "create",
+                "projectId": "primistine-crm",
+                "collection": "project_issues",
+                "options": {}
+            },
+            "name": "Create Issues",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook (Audio Upload)": {
+            "main": [
+                [
+                    {
+                        "node": "Whisper Transcribe",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Whisper Transcribe": {
+            "main": [
+                [
+                    {
+                        "node": "AI Task Extraction",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Task Extraction": {
+            "main": [
+                [
+                    {
+                        "node": "Create Issues",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

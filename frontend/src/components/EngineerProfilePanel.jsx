@@ -36,7 +36,7 @@ export default function EngineerProfilePanel({ isOpen, onClose, engineer, onDepl
     const style = AVAILABILITY_STYLES[availability] || AVAILABILITY_STYLES['Available'];
 
     return (
-        <div className="fixed inset-0 z-50 flex justify-end">
+        <div className="fixed inset-0 z-[100] flex justify-end">
             {/* Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }}

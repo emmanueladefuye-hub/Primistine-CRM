@@ -1,0 +1,134 @@
+{
+    "name": "Omniscient CRM Bot",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "policy-chat",
+                "options": {}
+            },
+            "name": "Webhook (Chat)",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "projects",
+                "limit": 10,
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "status",
+                            "operator": "==",
+                            "value": "Active"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Active Projects",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "leads",
+                "limit": 10,
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "status",
+                            "operator": "==",
+                            "value": "New"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get New Leads",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://openrouter.ai/api/v1/chat/completions",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_OPENROUTER_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"google/gemini-flash-1.5-exp\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are the Primistine CRM Super-Agent. You have access to the LIVE database.\\n\\n*** LIVE CRM DATA ***\\nACTIVE PROJECTS: {{JSON.stringify($node[\"Get Active Projects\"].json)}}\\nNEW LEADS: {{JSON.stringify($node[\"Get New Leads\"].json)}}\\n\\n*** EMPLOYEE HANDBOOK ***\\n(Hours: 8-5, Leave: 20 days, Exp: 48h limit)\\n\\nUser Query: {{$node[\"Webhook (Chat)\"].json[\"body\"][\"message\"]}}\"\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+                "options": {}
+            },
+            "name": "AI Omniscient Answer",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook (Chat)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Active Projects",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Active Projects": {
+            "main": [
+                [
+                    {
+                        "node": "Get New Leads",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get New Leads": {
+            "main": [
+                [
+                    {
+                        "node": "AI Omniscient Answer",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

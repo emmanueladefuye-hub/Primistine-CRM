@@ -57,6 +57,7 @@ export function LeadsProvider({ children }) {
         } catch (err) {
             console.error('Error adding lead:', err);
             toast.error('Failed to add lead');
+            throw err; // Re-throw for component-level handling
         }
     };
 

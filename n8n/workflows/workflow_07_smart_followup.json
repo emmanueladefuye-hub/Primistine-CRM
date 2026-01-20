@@ -1,0 +1,140 @@
+{
+    "name": "Smart Follow-up Scheduler",
+    "nodes": [
+        {
+            "parameters": {
+                "rule": {
+                    "interval": [
+                        {
+                            "field": "cronExpression",
+                            "expression": "0 9 * * 1-5"
+                        }
+                    ]
+                }
+            },
+            "name": "Schedule Trigger (9am Mon-Fri)",
+            "type": "n8n-nodes-base.schedule",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "getAll",
+                "projectId": "primistine-crm",
+                "collection": "leads",
+                "queryType": "where",
+                "where": {
+                    "values": [
+                        {
+                            "field": "lastContact",
+                            "operator": "<",
+                            "value": "={{$today.minus({days: 2})}}"
+                        },
+                        {
+                            "field": "status",
+                            "operator": "!=",
+                            "value": "closed"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "name": "Get Stale Leads",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                450,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://openrouter.ai/api/v1/chat/completions",
+                "authentication": "genericCredentialType",
+                "genericAuthType": "httpHeaderAuth",
+                "sendHeaders": true,
+                "headerParametersUi": {
+                    "parameter": [
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_OPENROUTER_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"google/gemini-flash-1.5-exp\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are a sales assistant. Analyze the lead's history and suggest the best next action (Call/Email/WhatsApp) and time. Return JSON: {\\\"action\\\": \\\"Call\\\", \\\"time\\\": \\\"Tuesday 10am\\\", \\\"reason\\\": \\\"Usually answers mid-morning\\\"}.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Lead: {{$json[\\\"name\\\"]}}. History: {{$json[\\\"activities\\\"]}}\"\n    }\n  ],\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+                "options": {}
+            },
+            "name": "AI Analysis",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 1,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "update",
+                "projectId": "primistine-crm",
+                "collection": "leads",
+                "documentId": "={{$node[\"Get Stale Leads\"].json[\"id\"]}}",
+                "options": {
+                    "columns": {
+                        "mappingMode": "defineBelow",
+                        "value": {
+                            "nextActionRecommendation": "={{JSON.parse($node[\"AI Analysis\"].json[\"choices\"][0][\"message\"][\"content\"])}}"
+                        }
+                    }
+                }
+            },
+            "name": "Update Lead",
+            "type": "n8n-nodes-base.googleFirestore",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Schedule Trigger (9am Mon-Fri)": {
+            "main": [
+                [
+                    {
+                        "node": "Get Stale Leads",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Stale Leads": {
+            "main": [
+                [
+                    {
+                        "node": "AI Analysis",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Analysis": {
+            "main": [
+                [
+                    {
+                        "node": "Update Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
