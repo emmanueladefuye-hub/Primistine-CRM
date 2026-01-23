@@ -1,18 +1,50 @@
+:root {
+  --font-primary: 'Inter', sans-serif;
+  --font-display: 'Outfit', sans-serif;
+
+  --twenty-bg: #f5f7fa;
+  --twenty-surface: rgba(255, 255, 255, 0.7);
+  --twenty-border: rgba(0, 0, 0, 0.04);
+  --twenty-radius: 12px;
+}
+
+@layer base {
+  html {
+    font-size: 85%;
+  }
+
+  body {
+    font-family: var(--font-primary);
+    @apply bg-[#f5f7fa] text-slate-900 antialiased selection:bg-premium-blue-100 selection:text-premium-blue-900;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-display);
+  }
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  html {
-    font-size: 80%;
-  }
-
-  body {
-    @apply bg-slate-50 text-slate-900 antialiased;
-  }
-}
-
 @layer utilities {
+  .glass-surface {
+    @apply bg-white/70 backdrop-blur-md border border-white/20 shadow-xl shadow-slate-200/40;
+  }
+
+  .glass-border {
+    @apply border border-white/20;
+  }
+
+  .premium-gradient {
+    @apply bg-gradient-to-tr from-premium-blue-900 via-premium-blue-800 to-premium-blue-700;
+  }
+
   .animate-pop {
     animation: pop 0.3s ease-out;
   }

@@ -67,7 +67,8 @@ service cloud.firestore {
       // Safest to restrict update to Admin or Self (limited fields).
       // For now, simple check:
       allow create: if isAdmin() || (userId == request.auth.uid); // Allow cleanup/init
-      allow update: if isAdmin() || isOwner(userId);
+      allow update: if (isAdmin() || isOwner(userId)) && 
+                     (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'permissions']) || hasRole('super_admin'));
       allow delete: if hasRole('super_admin');
     }
 
@@ -171,6 +172,27 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isAuthenticated(); // App writes logs
       allow delete: if hasRole('super_admin');
+    }
+
+    // 16. SETTINGS
+    match /settings/{settingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // 17. MESSAGES
+    match /messages/{messageId} {
+      allow read: if isAdmin() || (isAuthenticated() && (request.auth.uid in resource.data.participants));
+      // Only allow creation if you are a participant in the new message
+      allow create: if isAuthenticated() && request.auth.uid in request.resource.data.participants;
+      allow update: if isAdmin() || (isAuthenticated() && (request.auth.uid in resource.data.participants));
+      allow delete: if isAdmin();
+    }
+
+    // 18. CHANNELS
+    match /channels/{channelId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
     
     // Default Deny

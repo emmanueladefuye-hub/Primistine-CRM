@@ -34,7 +34,16 @@ export default function IssuesDashboard() {
     const filteredIssues = formattedIssues.filter(issue => {
         if (filterSeverity !== 'All' && issue.severity !== filterSeverity) return false;
         if (filterStatus !== 'All' && issue.status !== filterStatus) return false;
-        if (searchQuery && !issue.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+
+        if (searchQuery) {
+            const term = searchQuery.toLowerCase();
+            const matchesSearch =
+                issue.title.toLowerCase().includes(term) ||
+                (issue.location || '').toLowerCase().includes(term) ||
+                (issue.reporter?.name || '').toLowerCase().includes(term);
+
+            if (!matchesSearch) return false;
+        }
         return true;
     });
 

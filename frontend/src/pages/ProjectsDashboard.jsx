@@ -9,8 +9,9 @@ import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import TimeFilter from '../components/TimeFilter';
 import CreateProjectModal from '../components/projects/CreateProjectModal';
+import { filterByRange } from '../lib/constants';
 
-const ProjectCard = ({ project }) => {
+const ProjectCard = React.memo(({ project }) => {
     const [showMenu, setShowMenu] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
@@ -27,10 +28,8 @@ const ProjectCard = ({ project }) => {
         setIsDeleting(true);
         try {
             await deleteProject(project.id);
-            // Context handles toast
         } catch (error) {
             console.error("Error removing project: ", error);
-            // Context handles error toast
         } finally {
             setIsDeleting(false);
             setConfirmDelete(false);
@@ -136,7 +135,7 @@ const ProjectCard = ({ project }) => {
             </div>
         </div>
     );
-};
+});
 
 export default function ProjectsDashboard() {
     const location = useLocation();
@@ -159,7 +158,9 @@ export default function ProjectsDashboard() {
         });
     }, [rawProjects]);
 
-    const filteredProjects = projects; // TODO: restore time range filter if needed later
+    const filteredProjects = useMemo(() => {
+        return filterByRange(projects || [], timeRange, referenceDate);
+    }, [projects, timeRange, referenceDate]);
 
     // Initialize filter from navigation state
     useEffect(() => {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Battery, Sun, DollarSign, FileText } from 'lucide-react';
+import { Zap, Battery, Sun, FileText, TrendingUp } from 'lucide-react';
 
 export default function SystemDetailsCard({ project }) {
     const specs = project.systemSpecs || {};
@@ -12,7 +12,7 @@ export default function SystemDetailsCard({ project }) {
                 <SpecItem icon={Zap} label="Inverter" value={specs.inverter || '-'} color="text-amber-500 bg-amber-50" />
                 <SpecItem icon={Battery} label="Battery" value={specs.battery || '-'} color="text-green-500 bg-green-50" />
                 <SpecItem icon={Sun} label="Solar Array" value={specs.solar || specs.solarArray || '-'} color="text-blue-500 bg-blue-50" />
-                <SpecItem icon={DollarSign} label="Value" value={specs.value ? `₦${Number(specs.value).toLocaleString()}` : 'N/A'} color="text-slate-500 bg-slate-50" />
+                <SpecItem icon={TrendingUp} label="Value" value={specs.value ? `₦${Number(specs.value).toLocaleString()}` : 'N/A'} color="text-slate-500 bg-slate-50" />
             </div>
 
             <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">

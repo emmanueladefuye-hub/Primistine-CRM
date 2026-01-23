@@ -11,7 +11,8 @@ import {
     Zap,
     ArrowRight,
     RotateCcw,
-    CalendarDays
+    CalendarDays,
+    Mic
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -196,9 +197,15 @@ export default function ProjectCommandCenter({ project, onAction, onNavigateToTa
                         onClick={() => onAction('view_audit')}
                     />
                     <ToolItem
+                        icon={Mic}
+                        label="Voice Punch"
+                        color="bg-rose-50 text-rose-600"
+                        onClick={() => onAction('voice_punch')}
+                    />
+                    <ToolItem
                         icon={AlertTriangle}
                         label="Report Issue"
-                        color="bg-rose-50 text-rose-600"
+                        color="bg-amber-50 text-amber-600"
                         onClick={() => onNavigateToTab('Issues')}
                     />
                     <ToolItem

@@ -32,6 +32,11 @@ const FIELD_MAP = {
         own: 'reportedBy',
         assigned: 'assignedTo',
         team: 'teamId'
+    },
+    messages: {
+        own: 'senderId',
+        assigned: 'participants',
+        team: 'teamId'
     }
 };
 
@@ -56,9 +61,9 @@ export function useScopedCollection(collectionName, baseConstraints = []) {
     }
 
     // 1. Get Permission Scope
-    // Defensive check: userProfile.permissions might be undefined during init
     const permissions = userProfile.permissions || {};
-    const resourcePerms = permissions[collectionName];
+    // Check for exact resource match first, then fall back to wildcard
+    const resourcePerms = permissions[collectionName] || permissions['*'];
 
     // If explicit boolean false (or missing), access denied
     if (!resourcePerms || resourcePerms.view === false) {
@@ -89,7 +94,7 @@ export function useScopedCollection(collectionName, baseConstraints = []) {
         const field = FIELD_MAP[collectionName]?.assigned || 'assignedTo';
 
         // Check if the field is array type in schema (Projects used 'team' array)
-        if (collectionName === 'projects' && field === 'team') {
+        if ((collectionName === 'projects' && field === 'team') || (collectionName === 'messages' && field === 'participants')) {
             scopeConstraints.push(where(field, 'array-contains', userProfile.uid));
         } else {
             // Default assumes single value match, unless we know it's array

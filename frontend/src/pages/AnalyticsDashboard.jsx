@@ -2,9 +2,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Zap, Trees, Users, Award, TrendingUp, Loader2, ArrowUpRight, ArrowDownRight, FileDown } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import TimeFilter from '../components/TimeFilter';
-import { useCollection } from '../hooks/useFirestore';
-import { collection, query, where } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { useProjects } from '../contexts/ProjectsContext';
+import { useLeads } from '../contexts/LeadsContext';
+import { useQuotes } from '../contexts/QuotesContext';
 import { downloadCSV } from '../utils/exportUtils';
 import clsx from 'clsx';
 
@@ -12,10 +12,10 @@ export default function AnalyticsDashboard() {
     const [timeRange, setTimeRange] = useState('day');
     const [referenceDate, setReferenceDate] = useState(new Date().toISOString().split('T')[0]);
 
-    // Fetch Live Data
-    const { data: projects, loading: projectsLoading } = useCollection('projects');
-    const { data: leads, loading: leadsLoading } = useCollection('leads');
-    const { data: qoutes, loading: quotesLoading } = useCollection('quotes');
+    // Fetch Live Data from Contexts
+    const { projects, loading: projectsLoading } = useProjects();
+    const { leads, loading: leadsLoading } = useLeads();
+    const { quotes, loading: quotesLoading } = useQuotes();
 
     const isLoading = projectsLoading || leadsLoading || quotesLoading;
 
@@ -24,16 +24,20 @@ export default function AnalyticsDashboard() {
     const stats = useMemo(() => {
         if (isLoading) return null;
 
+        const safeProjects = projects || [];
+        const safeLeads = leads || [];
+        const safeQuotes = quotes || [];
+
         // 1. Total Energy (GWh)
-        const totalSystemSizeKW = projects.reduce((acc, p) => acc + (Number(p.systemSize) || 5), 0);
+        const totalSystemSizeKW = safeProjects.reduce((acc, p) => acc + (Number(p.systemSize) || 5), 0);
         const energyGeneratedGWh = (totalSystemSizeKW * 4.5 * 365) / 1000000;
 
         // 2. CO2 Saved (Tons)
         const co2Saved = Math.round(energyGeneratedGWh * 700);
 
         // 3. Pipeline Metrics
-        const totalLeads = leads.length;
-        const wonLeads = leads.filter(l => l.stage === 'won' || l.status === 'won').length;
+        const totalLeads = safeLeads.length;
+        const wonLeads = safeLeads.filter(l => l.stage === 'won' || l.status === 'won').length;
         const conversionRate = totalLeads > 0 ? Math.round((wonLeads / totalLeads) * 100) : 0;
 
         const parseValue = (val) => {
@@ -42,12 +46,12 @@ export default function AnalyticsDashboard() {
             return 0;
         };
 
-        const totalValue = leads.reduce((sum, l) => sum + parseValue(l.value || l.rawValue), 0);
+        const totalValue = safeLeads.reduce((sum, l) => sum + parseValue(l.value || l.rawValue), 0);
         const avgDealSize = totalLeads > 0 ? (totalValue / totalLeads) : 0;
 
-        // 4. Service Distribution
+        // ... Service Distribution ...
         const serviceCounts = {};
-        projects.forEach(p => {
+        safeProjects.forEach(p => {
             const type = p.type || 'Solar Installation';
             serviceCounts[type] = (serviceCounts[type] || 0) + 1;
         });
@@ -57,12 +61,12 @@ export default function AnalyticsDashboard() {
             color: key.toLowerCase().includes('solar') ? '#f59e0b' : key.toLowerCase().includes('audit') ? '#3b82f6' : '#1e293b'
         }));
 
-        // 5. Weekly Installs
+        // ... Weekly Installs ...
         const weeklyInstalls = [
             { day: 'Mon', count: 0 }, { day: 'Tue', count: 0 }, { day: 'Wed', count: 0 },
             { day: 'Thu', count: 0 }, { day: 'Fri', count: 0 }, { day: 'Sat', count: 0 }, { day: 'Sun', count: 0 }
         ];
-        projects.forEach(p => {
+        safeProjects.forEach(p => {
             const dateStr = p.startDate || p.created_at || p.date;
             if (dateStr) {
                 const day = new Date(dateStr).getDay();
@@ -74,14 +78,16 @@ export default function AnalyticsDashboard() {
         return {
             energy: energyGeneratedGWh.toFixed(2),
             co2: co2Saved,
-            growth: 12.5, // Mocked growth for now as we don't have historical snapshots easily
+            growth: 12.5,
             conversionRate,
             avgDealSize,
             performanceData,
-            weeklyInstalls
+            weeklyInstalls,
+            totalLeads,
+            pendingQuotesCount: safeQuotes.filter(q => q.status !== 'Accepted').length
         };
 
-    }, [projects, leads, isLoading]);
+    }, [projects, leads, quotes, isLoading]);
 
     const handleExport = () => {
         const exportData = leads.map(l => ({
@@ -216,20 +222,20 @@ export default function AnalyticsDashboard() {
                     <div className="flex flex-wrap gap-8">
                         <div>
                             <p className="text-sm text-slate-500 mb-1">Total Leads</p>
-                            <p className="text-2xl font-bold text-slate-800">{leads.length}</p>
+                            <p className="text-2xl font-bold text-slate-800">{stats.totalLeads}</p>
                         </div>
                         <div>
                             <p className="text-sm text-slate-500 mb-1">Conversion Rate</p>
                             <div className="flex items-center gap-2">
                                 <p className="text-2xl font-bold text-slate-800">
-                                    {leads.length ? Math.round((leads.filter(l => l.stage === 'won').length / leads.length) * 100) : 0}%
+                                    {stats.conversionRate}%
                                 </p>
                                 <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">Healthy</span>
                             </div>
                         </div>
                         <div>
                             <p className="text-sm text-slate-500 mb-1">Pending Quotes</p>
-                            <p className="text-2xl font-bold text-slate-800">{qoutes.filter(q => q.status !== 'Accepted').length}</p>
+                            <p className="text-2xl font-bold text-slate-800">{stats.pendingQuotesCount}</p>
                         </div>
                         <div>
                             <p className="text-sm text-slate-500 mb-1">Avg. Deal Size</p>

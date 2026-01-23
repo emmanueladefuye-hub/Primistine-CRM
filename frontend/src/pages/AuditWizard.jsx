@@ -18,6 +18,8 @@ import Toast from '../components/ui/Toast';
 import { toast } from 'react-hot-toast';
 import { auditService } from '../lib/services/auditService';
 import SiteAuditFAB from '../components/audits/tools/SiteAuditFAB';
+import { SystemLogger, LOG_ACTIONS } from '../lib/services/SystemLogger';
+import { useAuth } from '../contexts/AuthContext';
 
 const STEPS = {
     0: { title: 'Service Selection', id: 'service' },
@@ -30,6 +32,7 @@ export default function AuditWizard() {
     const navigate = useNavigate();
     const location = useLocation(); // ADDED
     const { id } = useParams();
+    const { currentUser } = useAuth();
     const isEditMode = !!id && id !== 'new';
 
     const [currentStep, setCurrentStep] = useState(0);
@@ -304,11 +307,23 @@ export default function AuditWizard() {
             // Preserve original submittedAt if editing, or set new if new
             submittedAt: auditData.submittedAt || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            engineer: 'Demo User' // In real app, from Auth context
+            engineer: currentUser?.displayName || currentUser?.email || 'System'
         };
 
         try {
             await auditService.saveAudit(finalAudit);
+
+            await SystemLogger.log(
+                isEditMode ? LOG_ACTIONS.AUDIT_UPDATED : LOG_ACTIONS.AUDIT_SUBMITTED,
+                `${isEditMode ? 'Updated' : 'Submitted'} audit for ${finalAudit.client.clientName}`,
+                {
+                    auditId: finalAudit.id,
+                    clientName: finalAudit.client.clientName,
+                    services: finalAudit.services,
+                    engineer: finalAudit.engineer,
+                    userId: currentUser?.uid
+                }
+            );
 
             // NEW: Auto-advance lead stage to 'audit' (Audited)
             if (isFromLead && auditData.client?.leadId) {
@@ -316,6 +331,11 @@ export default function AuditWizard() {
                 await updateDoc(leadRef, {
                     stage: 'audit',
                     updatedAt: serverTimestamp()
+                });
+
+                await SystemLogger.log(LOG_ACTIONS.LEAD_UPDATED, `Auto-moved lead to Audited stage`, {
+                    leadId: auditData.client.leadId,
+                    newStage: 'audit'
                 });
 
                 toast.success("Lead moved to Audited stage", {

@@ -4,15 +4,18 @@ import {
     collection, addDoc, updateDoc, deleteDoc, doc, orderBy,
     query, where, getDocs, serverTimestamp, arrayUnion
 } from 'firebase/firestore';
-import { useCollection } from '../hooks/useFirestore';
+import { limit } from 'firebase/firestore';
+import { useScopedCollection } from '../hooks/useScopedCollection';
+import { useScopedPagination } from '../hooks/useScopedPagination';
 import { toast } from 'react-hot-toast';
 // Mocks removed
 import { PIPELINE_STAGES } from '../lib/constants';
 import { useProjects } from './ProjectsContext';
 import { useClients } from './ClientsContext';
 import { useAuth } from './AuthContext';
+import { SystemLogger, LOG_ACTIONS } from '../lib/services/SystemLogger';
 
-const LeadsContext = createContext();
+export const LeadsContext = createContext();
 
 export function useLeads() {
     const context = useContext(LeadsContext);
@@ -23,13 +26,25 @@ export function useLeads() {
 }
 
 export function LeadsProvider({ children }) {
-    const { currentUser } = useAuth();
+    const { currentUser, userProfile } = useAuth();
     const { addProject } = useProjects();
     const { addClient } = useClients();
 
-    // Subscribe to leads collection
-    const leadsQuery = React.useMemo(() => [orderBy('id', 'desc')], []);
-    const { data: leads, loading, error } = useCollection('leads', leadsQuery); // Sorting by ID time-based for now, or created_at if added
+    // 1. Limited Real-time Subscription (Top 100 for Board View)
+    // Prevents crashing the browser with 1000s of leads on initial load
+    const leadsQuery = React.useMemo(() => [orderBy('createdAt', 'desc'), limit(100)], []);
+    const { data: leads, loading: collectionLoading, error: collectionError } = useScopedCollection('leads', leadsQuery);
+
+    // 2. Paginated Subscription (Infinite Scroll for List View)
+    const {
+        data: pagedLeads,
+        loading: pagedLoading,
+        hasMore: leadsHasMore,
+        loadMore: loadMoreLeads
+    } = useScopedPagination('leads', [orderBy('createdAt', 'desc')], 20);
+
+    const loading = collectionLoading || (pagedLoading && pagedLeads.length === 0);
+    const error = collectionError;
 
     const addLead = async (leadData) => {
         try {
@@ -43,6 +58,8 @@ export function LeadsProvider({ children }) {
                 lastContact: 'Just now',
                 activities: [],
                 documents: [],
+                companyId: userProfile?.companyId || 'default', // RBAC scoping
+                createdBy: currentUser?.uid || 'system',        // RBAC scoping
                 createdAt: new Date().toISOString(),
                 updatedBy: currentUser?.uid || 'system'
             };
@@ -50,7 +67,14 @@ export function LeadsProvider({ children }) {
             // Let Firestore generate a random string ID
             const docRef = await addDoc(collection(db, 'leads'), newLead);
 
-            // If we need the ID in the object for local state (though useCollection handles it), 
+            await SystemLogger.log(LOG_ACTIONS.LEAD_CREATED, `Created new lead: ${leadData.name}`, {
+                leadId: docRef.id,
+                leadName: leadData.name,
+                value: rawValue,
+                createdBy: currentUser?.uid || 'system'
+            });
+
+            // If we need the ID in the object for local state (though useCollection handles it),  
             // we can update it if needed, but usually doc.id is better.
             toast.success('Lead added successfully');
             return docRef.id;
@@ -75,6 +99,13 @@ export function LeadsProvider({ children }) {
 
             const docRef = doc(db, 'leads', String(id));
             await updateDoc(docRef, updates);
+
+            await SystemLogger.log(LOG_ACTIONS.LEAD_UPDATED, `Updated lead: ${id}`, {
+                leadId: id,
+                updates: Object.keys(updates),
+                updatedBy: currentUser?.uid || 'system'
+            });
+
             toast.success('Lead updated');
         } catch (err) {
             console.error('Error updating lead:', err);
@@ -145,7 +176,9 @@ export function LeadsProvider({ children }) {
                 dateJoined: new Date().toISOString().split('T')[0],
                 totalProjects: 1,
                 value: lead.value || 0,
-                notes: lead.notes || ''
+                notes: lead.notes || '',
+                companyId: userProfile?.companyId || 'default', // RBAC scoping
+                createdBy: currentUser?.uid || 'system'         // RBAC scoping
             });
 
         } catch (error) {
@@ -197,7 +230,15 @@ export function LeadsProvider({ children }) {
                 description: `Project auto-created from won lead. Notes: ${lead.notes || 'None'}`,
                 priority: 'High',
                 createdAt: serverTimestamp(),
-                createdFrom: 'lead'
+                createdFrom: 'lead',
+                companyId: userProfile?.companyId || 'default', // RBAC scoping
+                createdBy: currentUser?.uid || 'system'         // RBAC scoping
+            });
+
+            await SystemLogger.log(LOG_ACTIONS.PROJECT_CREATED, `Auto-created project for lead: ${lead.name}`, {
+                leadId: lead.id,
+                serviceType,
+                value: lead.value
             });
 
         } catch (error) {
@@ -221,7 +262,18 @@ export function LeadsProvider({ children }) {
             const oldStageName = PIPELINE_STAGES.find(s => s.id === lead.stage)?.name || lead.stage;
             const newStageName = PIPELINE_STAGES.find(s => s.id === newStage)?.name || newStage;
             await addActivity(id, 'status', `Moved from ${oldStageName} to ${newStageName}`);
-            await updateLead(id, { stage: newStage, lastContact: 'Just now' });
+            await updateLead(id, {
+                stage: newStage,
+                lastContact: 'Just now',
+                stageUpdatedAt: new Date().toISOString()
+            });
+
+            await SystemLogger.log(LOG_ACTIONS.LEAD_UPDATED, `Changed stage to ${newStageName}`, {
+                leadId: id,
+                oldStage: lead.stage,
+                newStage: newStage,
+                userId: currentUser?.uid || 'system'
+            });
         }
     }, [leads, createClientFromLead, createProjectFromLead, addActivity, updateLead]);
 
@@ -236,7 +288,8 @@ export function LeadsProvider({ children }) {
 
     return (
         <LeadsContext.Provider value={{
-            leads, loading, error,
+            leads, pagedLeads, loading, error,
+            leadsHasMore, loadMoreLeads,
             addLead, updateLead, deleteLead,
             moveLeadStage,
             createClientFromLead,

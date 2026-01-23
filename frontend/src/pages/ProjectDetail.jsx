@@ -12,6 +12,7 @@ import ProjectHeader from '../components/projects/ProjectHeader';
 import ProjectCommandCenter from '../components/projects/ProjectCommandCenter';
 import ReportIssueModal from '../components/operations/ReportIssueModal';
 import ScheduleVisitModal from '../components/projects/ScheduleVisitModal';
+import VoiceRecorderModal from '../components/operations/VoiceRecorderModal';
 
 // Tabs
 // Tabs
@@ -52,6 +53,7 @@ export default function ProjectDetail() {
     const [activeTab, setActiveTab] = useState('Overview');
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+    const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
     const handleQuickAction = async (actionId) => {
         if (actionId === 'report_issue') {
@@ -110,6 +112,11 @@ export default function ProjectDetail() {
             } else {
                 toast.error("Project is already in the starting phase!");
             }
+            return;
+        }
+
+        if (actionId === 'voice_punch') {
+            setIsVoiceModalOpen(true);
             return;
         }
 
@@ -219,12 +226,20 @@ export default function ProjectDetail() {
                     location: project.location || '',
                 }}
             />
-            <ScheduleVisitModal
-                isOpen={isScheduleModalOpen}
-                onClose={() => setIsScheduleModalOpen(false)}
-                project={project}
-            />
+            {isScheduleModalOpen && (
+                <ScheduleVisitModal
+                    isOpen={isScheduleModalOpen}
+                    onClose={() => setIsScheduleModalOpen(false)}
+                    projectId={id}
+                />
+            )}
+
+            {isVoiceModalOpen && (
+                <VoiceRecorderModal
+                    onClose={() => setIsVoiceModalOpen(false)}
+                    projectId={id}
+                />
+            )}
         </div>
     );
 }
-

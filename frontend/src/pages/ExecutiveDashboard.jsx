@@ -1,12 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 import { TrendingUp, Users, AlertCircle, DollarSign, Calendar, ChevronRight, X, Clock } from 'lucide-react';
 import clsx from 'clsx';
 import { db } from '../lib/firebase';
-import { collection, query } from 'firebase/firestore';
-import { useCollection } from '../hooks/useFirestore';
+import { useLeads } from '../contexts/LeadsContext';
+import { useProjects } from '../contexts/ProjectsContext';
+import { useIssues } from '../contexts/IssuesContext';
 import TimeFilter from '../components/TimeFilter';
+import WeatherAlertBanner from '../components/dashboard/WeatherAlertBanner';
+import { filterByRange, ensureDate } from '../lib/constants';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const MetricCard = ({ title, value, change, trendLabel, icon: Icon, isGold = false, path }) => {
     const navigate = useNavigate();
@@ -38,169 +42,147 @@ const MetricCard = ({ title, value, change, trendLabel, icon: Icon, isGold = fal
 };
 
 export default function ExecutiveDashboard() {
-    // Data handling moved to useCollection hooks below
-
     const [selectedStage, setSelectedStage] = useState(null);
     const [timeRange, setTimeRange] = useState('day');
     const [referenceDate, setReferenceDate] = useState(new Date().toISOString().split('T')[0]);
     const navigate = useNavigate();
 
-    // Fetch Data on Mount
-    const { data: projects, loading: pLoading } = useCollection('projects');
-    const { data: leads, loading: lLoading } = useCollection('leads');
-    const { data: issues, loading: iLoading } = useCollection('project_issues');
+    // Consume data from Central Contexts
+    const { projects, loading: pLoading } = useProjects();
+    const { leads, loading: lLoading } = useLeads();
+    const { issues, loading: iLoading } = useIssues();
 
-    // Explicitly using dummy variable to avoid unused warning if we want; 
-    // or just relying on standard loading overlay.
-    // However, the original code used a single loading state. 
     const loading = pLoading || lLoading || iLoading;
 
-    // Remove old useEffect for subscriptions since useCollection handles it.
-
-    // Helper: Filter by Range
-    const filterByRange = (data, range, refDate) => {
-        const anchor = new Date(refDate);
-        return data.filter(item => {
-            if (!item.date && !item.created_at) return true;
-            // Handle both string date and Firestore timestamp (if needed, but mock data uses strings for dates primarily, or we accept created_at)
-            // For simplify, we assume 'date' field exists as string YYYY-MM-DD or similar from seeder
-            const itemDate = new Date(item.date || item.created_at);
-
-            if (range === 'day') return itemDate.toDateString() === anchor.toDateString();
-            if (range === 'week') {
-                const weekStart = new Date(anchor);
-                weekStart.setDate(anchor.getDate() - anchor.getDay());
-                const weekEnd = new Date(weekStart);
-                weekEnd.setDate(weekStart.getDate() + 6);
-                return itemDate >= weekStart && itemDate <= weekEnd;
-            }
-            if (range === 'month') return itemDate.getMonth() === anchor.getMonth() && itemDate.getFullYear() === anchor.getFullYear();
-            if (range === 'year') return itemDate.getFullYear() === anchor.getFullYear();
-            return true;
-        });
-    };
+    // Local helper removed in favor of global filterByRange from constants.js
 
     // Helper: Get Previous Reference Date
     const getPreviousDate = (refDate, range) => {
-        const date = new Date(refDate);
+        const date = ensureDate(refDate);
         if (range === 'day') date.setDate(date.getDate() - 1);
         if (range === 'week') date.setDate(date.getDate() - 7);
         if (range === 'month') date.setMonth(date.getMonth() - 1);
         if (range === 'year') date.setFullYear(date.getFullYear() - 1);
-        return date.toISOString().split('T')[0];
+        try {
+            return date.toISOString().split('T')[0];
+        } catch (e) {
+            return new Date().toISOString().split('T')[0];
+        }
     };
 
-    // Current Range Calculation
-    const filteredProjects = filterByRange(projects, timeRange, referenceDate);
-    const filteredLeads = filterByRange(leads, timeRange, referenceDate);
-    const filteredIssues = filterByRange(issues, timeRange, referenceDate);
+    // Current Range Calculation (Memoized)
+    const filteredProjects = useMemo(() => filterByRange(projects || [], timeRange, referenceDate), [projects, timeRange, referenceDate]);
+    const filteredLeads = useMemo(() => filterByRange(leads || [], timeRange, referenceDate), [leads, timeRange, referenceDate]);
+    const filteredIssues = useMemo(() => filterByRange(issues || [], timeRange, referenceDate), [issues, timeRange, referenceDate]);
 
     // Previous Range Calculation
-    const previousDate = getPreviousDate(referenceDate, timeRange);
-    const previousFilteredLeads = filterByRange(leads, timeRange, previousDate);
+    const previousDate = useMemo(() => getPreviousDate(referenceDate, timeRange), [referenceDate, timeRange]);
+    const previousFilteredLeads = useMemo(() => filterByRange(leads || [], timeRange, previousDate), [leads, timeRange, previousDate]);
 
-    // 1. Revenue
-    const parseValue = (val) => {
-        if (typeof val === 'number') return val;
-        if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
-        return 0;
-    };
+    // Metrics Calculation (Memoized)
+    const metrics = useMemo(() => {
+        const parseValue = (val) => {
+            if (typeof val === 'number') return val;
+            if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
+            return 0;
+        };
 
-    const revenueValue = filteredLeads
-        .filter(l => l.stage === 'won')
-        .reduce((sum, lead) => sum + parseValue(lead.value || lead.rawValue), 0);
-    const totalRevenue = `₦${revenueValue.toLocaleString()}`;
+        // 1. Revenue
+        const revenueValue = filteredLeads
+            .filter(l => l.stage === 'won')
+            .reduce((sum, lead) => sum + parseValue(lead.value || lead.rawValue), 0);
 
-    // Previous Revenue
-    const previousRevenueValue = previousFilteredLeads
-        .filter(l => l.stage === 'won')
-        .reduce((sum, lead) => sum + parseValue(lead.value || lead.rawValue), 0);
+        const previousRevenueValue = previousFilteredLeads
+            .filter(l => l.stage === 'won')
+            .reduce((sum, lead) => sum + parseValue(lead.value || lead.rawValue), 0);
 
-    // Revenue Trend
-    let revenueChange = 0;
-    if (previousRevenueValue > 0) {
-        revenueChange = Math.round(((revenueValue - previousRevenueValue) / previousRevenueValue) * 100);
-    } else if (revenueValue > 0) {
-        revenueChange = 100;
-    }
+        let revenueChange = 0;
+        if (previousRevenueValue > 0) {
+            revenueChange = Math.round(((revenueValue - previousRevenueValue) / previousRevenueValue) * 100);
+        } else if (revenueValue > 0) {
+            revenueChange = 100;
+        }
 
-    // 2. Active Projects (Stock: Current state, ignore time filter)
-    const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
+        // 2. Active Projects
+        const activeProjectsCount = (projects || []).filter(p => p.status !== 'Completed').length;
 
-    // 3. New Leads
-    const newLeadsCount = filteredLeads.filter(l => l.stage === 'new').length;
+        // 3. New Leads
+        const newLeadsCount = filteredLeads.filter(l => l.stage === 'new').length;
+        const previousNewLeadsCount = previousFilteredLeads.filter(l => l.stage === 'new').length;
 
-    // Previous New Leads
-    const previousNewLeadsCount = previousFilteredLeads.filter(l => l.stage === 'new').length;
+        const leadsChange = previousNewLeadsCount === 0
+            ? (newLeadsCount > 0 ? 100 : 0)
+            : Math.round(((newLeadsCount - previousNewLeadsCount) / previousNewLeadsCount) * 100);
 
-    // Leads Trend
-    const leadsChange = previousNewLeadsCount === 0
-        ? (newLeadsCount > 0 ? 100 : 0)
-        : Math.round(((newLeadsCount - previousNewLeadsCount) / previousNewLeadsCount) * 100);
+        // 4. Issues
+        const operationalIssuesCount = (projects || []).filter(p => p.health === 'risk' || p.health === 'warning').length;
 
-    // 4. Issues (Stock: Current risk state, ignore time filter)
-    const operationalIssuesCount = projects.filter(p => p.health === 'risk' || p.health === 'warning').length;
+        // 5. Conversion Stats
+        const wonLeads = filteredLeads.filter(l => l.stage === 'won').length;
+        const totalLeadsCount = filteredLeads.length;
+        const conversionRate = totalLeadsCount > 0 ? Math.round((wonLeads / totalLeadsCount) * 100) : 0;
+        const totalValueInPeriod = filteredLeads.reduce((sum, l) => sum + parseValue(l.value || l.rawValue), 0);
+        const avgDealValueRaw = totalLeadsCount > 0 ? (totalValueInPeriod / totalLeadsCount) : 0;
 
-    // Dynamic Trend Label
-    const getTrendLabel = () => {
+        const sources = {};
+        filteredLeads.forEach(l => sources[l.source] = (sources[l.source] || 0) + 1);
+        const topSource = Object.keys(sources).sort((a, b) => sources[b] - sources[a])[0] || 'N/A';
+
+        // 6. Stages Distribution
+        const stages = [
+            { name: 'Planning', desc: 'Drafting technical blueprints' },
+            { name: 'Procurement', desc: 'Coordinating equipment logistics' },
+            { name: 'Installation', desc: 'Deploying onsite teams' },
+            { name: 'Testing', desc: 'Validating performance' },
+            { name: 'Handover', desc: 'Official commissioning' }
+        ];
+
+        const stagesDistribution = stages.map(stage => ({
+            name: stage.name,
+            description: stage.desc,
+            count: (projects || []).filter(p => p.phase === stage.name).length
+        }));
+
+        return {
+            totalRevenue: `₦${revenueValue.toLocaleString()}`,
+            revenueChange,
+            activeProjectsCount,
+            newLeadsCount,
+            leadsChange,
+            operationalIssuesCount,
+            conversionStats: {
+                distribution: [
+                    { name: 'Won', value: wonLeads, color: '#10b981' },
+                    { name: 'Active', value: totalLeadsCount - wonLeads, color: '#3b82f6' }
+                ],
+                conversionRate,
+                avgValue: `₦${avgDealValueRaw.toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                topSource
+            },
+            stagesDistribution
+        };
+    }, [filteredLeads, previousFilteredLeads, projects]);
+
+    // Trend Label (Memoized)
+    const trendLabel = useMemo(() => {
         if (timeRange === 'day') return 'from yesterday';
         if (timeRange === 'week') return 'from last week';
         if (timeRange === 'month') return 'from last month';
         if (timeRange === 'year') return 'from last year';
         return '';
-    };
-    const trendLabel = getTrendLabel();
+    }, [timeRange]);
 
-    // 5. Stages Distribution (Stock: Current distribution, ignore time filter)
-    const stages = [
-        { name: 'Planning', desc: 'Drafting technical blueprints' },
-        { name: 'Procurement', desc: 'Coordinating equipment logistics' },
-        { name: 'Installation', desc: 'Deploying onsite teams' },
-        { name: 'Testing', desc: 'Validating performance' },
-        { name: 'Handover', desc: 'Official commissioning' }
-    ];
-    const stagesDistribution = stages.map(stage => ({
-        name: stage.name,
-        description: stage.desc,
-        count: projects.filter(p => p.phase === stage.name).length
-    }));
-
-    // 6. Conversion Stats (Time-bound analysis of leads in this period)
-    const wonLeads = filteredLeads.filter(l => l.stage === 'won').length;
-    const totalLeadsCount = filteredLeads.length;
-    const conversionRate = totalLeadsCount > 0 ? Math.round((wonLeads / totalLeadsCount) * 100) : 0;
-    const totalValueInPeriod = filteredLeads.reduce((sum, l) => sum + parseValue(l.value || l.rawValue), 0);
-    const avgDealValueRaw = totalLeadsCount > 0 ? (totalValueInPeriod / totalLeadsCount) : 0;
-    const avgValue = `₦${avgDealValueRaw.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
-
-    // Top Source
-    const sources = {};
-    filteredLeads.forEach(l => sources[l.source] = (sources[l.source] || 0) + 1);
-    const topSource = Object.keys(sources).sort((a, b) => sources[b] - sources[a])[0] || 'N/A';
-
-    const conversionStats = {
-        distribution: [
-            { name: 'Won', value: wonLeads, color: '#10b981' },
-            { name: 'Active', value: totalLeadsCount - wonLeads, color: '#3b82f6' }
-        ],
-        conversionRate,
-        avgValue,
-        topSource
-    };
-
-    const filteredProjectsForStage = (stage) => {
-        return projects.filter(p => { // Use 'projects' (all) then filter, or use filteredProjects? 
-            // The original code re-filtered MOCK_PROJECTS for stage AND date.
-            // Let's use filteredProjects which is already date filtered.
-            // BUT we need to check if 'p' is inside filteredProjects.
-            // Efficient way:
+    const filteredProjectsForStage = useCallback((stage) => {
+        return (projects || []).filter(p => {
             const itemDate = new Date(p.date || p.created_at);
             const anchor = new Date(referenceDate);
-            // ... (Duplicate date logic or trust filteredProjects)
-            // Let's just filter 'filteredProjects' by phase.
-            return filteredProjects.some(fp => fp.id === p.id);
-        }).filter(p => p.phase === stage);
-    };
+            // This is actually redundant if we just want to show WHAT IS CURRENTLY IN THAT STAGE regardless of filter, 
+            // but the original code seems to have mixed intent. 
+            // Usually "Active Projects" in a stage is a CURRENT state (stock).
+            // Let's stick to phase filtering on the full projects list for the stage breakdown.
+            return p.phase === stage;
+        });
+    }, [projects]);
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-8">
@@ -220,63 +202,70 @@ export default function ExecutiveDashboard() {
                 </div>
             </div>
 
+            {/* Weather Alert Banner */}
+            <WeatherAlertBanner projects={projects} />
+
             {/* Metrics Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                <MetricCard title="Total Revenue" value={totalRevenue} change={revenueChange} trendLabel={trendLabel} icon={DollarSign} isGold path="/finance" />
-                <MetricCard title="Active Projects" value={activeProjectsCount} icon={Calendar} path="/projects" />
-                <MetricCard title="New Leads" value={newLeadsCount} change={leadsChange} trendLabel={trendLabel} icon={Users} path="/sales" />
-                <MetricCard title="Operational Issues" value={operationalIssuesCount} icon={AlertCircle} path="/operations/issues" />
-            </div>
+            <ErrorBoundary minimal>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                    <MetricCard title="Total Revenue" value={metrics.totalRevenue} change={metrics.revenueChange} trendLabel={trendLabel} icon={DollarSign} isGold path="/finance" />
+                    <MetricCard title="Active Projects" value={metrics.activeProjectsCount} icon={Calendar} path="/projects" />
+                    <MetricCard title="New Leads" value={metrics.newLeadsCount} change={metrics.leadsChange} trendLabel={trendLabel} icon={Users} path="/sales" />
+                    <MetricCard title="Operational Issues" value={metrics.operationalIssuesCount} icon={AlertCircle} path="/operations/issues" />
+                </div>
+            </ErrorBoundary>
 
             {/* Charts Row */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Lead Conversion Insights */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                    <h3 className="font-bold text-premium-blue-900 mb-6">Lead Conversion Insights</h3>
-                    <div className="flex flex-col gap-6">
-                        <div className="h-32 w-full relative">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={conversionStats.distribution}
-                                        innerRadius={35}
-                                        outerRadius={50}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {conversionStats.distribution.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
-                                <span className="text-xl font-bold text-premium-blue-900">{conversionStats.conversionRate}%</span>
-                                <span className="text-[10px] text-slate-500 uppercase font-bold">Conv. Rate</span>
+                <ErrorBoundary minimal>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                        <h3 className="font-bold text-premium-blue-900 mb-6">Lead Conversion Insights</h3>
+                        <div className="flex flex-col gap-6">
+                            <div className="h-32 w-full relative">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={metrics.conversionStats.distribution}
+                                            innerRadius={35}
+                                            outerRadius={50}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {metrics.conversionStats.distribution.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                                <div className="absolute inset-0 flex items-center justify-center flex-col pointer-events-none">
+                                    <span className="text-xl font-bold text-premium-blue-900">{metrics.conversionStats.conversionRate}%</span>
+                                    <span className="text-[10px] text-slate-500 uppercase font-bold">Conv. Rate</span>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-500 font-medium">Avg. Deal Value</span>
-                                <span className="text-premium-blue-900 font-bold">{conversionStats.avgValue}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-sm">
-                                <span className="text-slate-500 font-medium">Top Source</span>
-                                <span className="text-premium-blue-600 font-bold">{conversionStats.topSource}</span>
-                            </div>
-                            <div className="pt-3 border-t border-slate-100 flex gap-2">
-                                {conversionStats.distribution.map(d => (
-                                    <div key={d.name} className="flex items-center gap-1.5">
-                                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
-                                        <span className="text-[10px] text-slate-500 font-medium uppercase">{d.name} ({d.value})</span>
-                                    </div>
-                                ))}
+                            <div className="space-y-3">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-500 font-medium">Avg. Deal Value</span>
+                                    <span className="text-premium-blue-900 font-bold">{metrics.conversionStats.avgValue}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-slate-500 font-medium">Top Source</span>
+                                    <span className="text-premium-blue-600 font-bold">{metrics.conversionStats.topSource}</span>
+                                </div>
+                                <div className="pt-3 border-t border-slate-100 flex gap-2">
+                                    {metrics.conversionStats.distribution.map(d => (
+                                        <div key={d.name} className="flex items-center gap-1.5">
+                                            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: d.color }}></div>
+                                            <span className="text-[10px] text-slate-500 font-medium uppercase">{d.name} ({d.value})</span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+                </ErrorBoundary>
 
                 {/* Project Distribution (Now Bigger - col-span-2) */}
                 {/* Project Distribution: Intelligence Tiles */}
@@ -291,7 +280,7 @@ export default function ExecutiveDashboard() {
                     <div className="flex-1 flex flex-col xl:flex-row gap-8">
                         {/* Stages List */}
                         <div className="flex-1 space-y-3">
-                            {stagesDistribution.map((stage, i) => (
+                            {metrics.stagesDistribution.map((stage, i) => (
                                 <div
                                     key={stage.name}
                                     onClick={() => setSelectedStage(stage.name)}

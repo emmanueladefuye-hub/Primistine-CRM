@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DollarSign, FileText, Send, CheckCircle } from 'lucide-react';
+import { FileText, Send, CheckCircle } from 'lucide-react';
 
 import { useInvoices } from '../../../contexts/InvoicesContext';
 import Skeleton from '../../ui/Skeleton';
@@ -107,7 +107,7 @@ export default function TabPayments({ project }) {
                                                             onClick={() => handleMarkPaid(inv.id)}
                                                             className="text-xs font-bold text-slate-500 hover:text-green-600 flex items-center gap-1 bg-slate-100 px-2 py-1 rounded"
                                                         >
-                                                            <DollarSign size={12} /> Record Pay
+                                                            Record Pay
                                                         </button>
                                                         <button className="text-xs font-bold text-slate-500 hover:text-blue-600 flex items-center gap-1 bg-slate-100 px-2 py-1 rounded">
                                                             <Send size={12} /> Remind

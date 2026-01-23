@@ -6,14 +6,15 @@ import {
     onAuthStateChanged,
     updateProfile
 } from 'firebase/auth';
+import { ref, onValue, set, onDisconnect, serverTimestamp as rtdbTimestamp } from 'firebase/database';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth, db, rtdb } from '../lib/firebase';
 import { toast } from 'react-hot-toast';
 
 const AuthContext = createContext();
 
 // ⚠️ BOOTSTRAP MODE: Set to TRUE to allow the first admin to be created based on email
-const BOOTSTRAP_MODE = true;
+const BOOTSTRAP_MODE = false;
 // ADD NEW FOUNDER EMAILS HERE
 const FOUNDER_EMAILS = [
     'emmanueladefuye@gmail.com',
@@ -123,6 +124,14 @@ export function AuthProvider({ children }) {
             }
         } catch (error) {
             console.error("Error fetching user profile:", error);
+            // Retry once after 1s if it was a transient error
+            try {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const retryDoc = await getDoc(userRef);
+                if (retryDoc.exists()) return retryDoc.data();
+            } catch (retryErr) {
+                console.error("Profile fetch retry failed:", retryErr);
+            }
             // Fallback for safety to prevent white screen, return basic profile
             return { uid: firebaseUser.uid, role: 'guest', permissions: {} };
         }
@@ -240,13 +249,36 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            setLoading(true);
             if (user) {
-                // Set currentUser immediately so UI updates
                 setCurrentUser(user);
+                try {
+                    const profile = await getUserProfile(user);
+                    setUserProfile(profile);
+                } catch (err) {
+                    console.error("AuthContext: Profile sync error", err);
+                }
 
-                // Then fetch profile
-                const profile = await getUserProfile(user);
-                setUserProfile(profile);
+                // Presence Logic (RTDB)
+                const userStatusRef = ref(rtdb, `/status/${user.uid}`);
+                const isOfflineForDatabase = {
+                    state: 'offline',
+                    last_changed: rtdbTimestamp(),
+                    email: user.email
+                };
+                const isOnlineForDatabase = {
+                    state: 'online',
+                    last_changed: rtdbTimestamp(),
+                    email: user.email
+                };
+
+                const connectedRef = ref(rtdb, '.info/connected');
+                onValue(connectedRef, (snapshot) => {
+                    if (snapshot.val() === false) return;
+                    onDisconnect(userStatusRef).set(isOfflineForDatabase).then(() => {
+                        set(userStatusRef, isOnlineForDatabase);
+                    });
+                });
             } else {
                 setCurrentUser(null);
                 setUserProfile(null);
@@ -259,7 +291,7 @@ export function AuthProvider({ children }) {
                 console.warn("AuthContext: Firebase auth listener timed out.");
                 setLoading(false);
             }
-        }, 5000); // Increased to 5s to allow profile fetch
+        }, 5000);
 
         return () => {
             unsubscribe();
@@ -294,5 +326,4 @@ export function AuthProvider({ children }) {
             {children}
         </AuthContext.Provider>
     );
-
 }

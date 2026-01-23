@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
-import { getFirestore, clearIndexedDbPersistence, terminate } from "firebase/firestore";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getDatabase } from "firebase/database";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
@@ -19,26 +20,20 @@ const app = initializeApp(firebaseConfig);
 
 // Initialize Services
 const auth = getAuth(app);
+
+// Set Persistence to LOCAL (survives browser close)
+setPersistence(auth, browserLocalPersistence)
+    .catch((error) => {
+        console.error("Auth persistence error:", error);
+    });
+
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
 const storage = getStorage(app);
 
-// Auto-clear corrupted IndexedDB cache on first load (prevents b815/ca9 errors)
-const CACHE_CLEARED_KEY = 'firestore_cache_cleared_v1';
-if (!sessionStorage.getItem(CACHE_CLEARED_KEY)) {
-    terminate(db).then(() => {
-        clearIndexedDbPersistence(db).then(() => {
-            console.log('Firestore cache cleared successfully');
-            sessionStorage.setItem(CACHE_CLEARED_KEY, 'true');
-            window.location.reload();
-        }).catch(err => {
-            console.warn('Could not clear Firestore cache:', err.message);
-            sessionStorage.setItem(CACHE_CLEARED_KEY, 'true');
-        });
-    }).catch(err => {
-        console.warn('Could not terminate Firestore:', err.message);
-        sessionStorage.setItem(CACHE_CLEARED_KEY, 'true');
-    });
-}
+// Note: Cache clearing logic removed as it terminated the Firestore instance
+// and caused blank screens. If IndexedDB issues occur, users should manually
+// clear browser storage or use DevTools Application > Clear Storage.
 
 // Messaging (FCM)
 let messaging;
@@ -75,4 +70,4 @@ export const onMessageListener = () =>
         });
     });
 
-export { auth, db, storage, messaging };
+export { auth, db, rtdb, storage, messaging };

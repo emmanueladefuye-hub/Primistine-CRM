@@ -4,7 +4,7 @@ import { collection, addDoc, updateDoc, deleteDoc, doc, orderBy } from 'firebase
 import { useCollection } from '../hooks/useFirestore';
 import { toast } from 'react-hot-toast';
 
-const ClientsContext = createContext();
+export const ClientsContext = createContext();
 
 export function useClients() {
     const context = useContext(ClientsContext);

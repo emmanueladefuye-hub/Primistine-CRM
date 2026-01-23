@@ -7,7 +7,7 @@ import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { toast } from 'react-hot-toast';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 
 // Import Specific Review Components
 import { CCTVReview } from '../components/audits/reviews/CCTVReview';
@@ -26,6 +26,21 @@ export default function AuditDetail() {
     const [isGeneratingQuote, setIsGeneratingQuote] = useState(false);
     const [isMovingToProject, setIsMovingToProject] = useState(false);
     const [showMoveModal, setShowMoveModal] = useState(false);
+    const [businessProfile, setBusinessProfile] = useState(null);
+
+    // Fetch Business Profile for PDF
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const docRef = doc(db, 'settings', 'business_profile');
+                const snap = await getDoc(docRef);
+                if (snap.exists()) setBusinessProfile(snap.data());
+            } catch (error) {
+                console.error("Error fetching business profile:", error);
+            }
+        };
+        fetchProfile();
+    }, []);
 
     useEffect(() => {
         const fetchAudit = async () => {
@@ -53,8 +68,8 @@ export default function AuditDetail() {
                         id: localAudit.id,
                         client: { clientName: localAudit.client, address: localAudit.address },
                         status: localAudit.status,
-                        submittedAt: localAudit.completedAt || new Date().toISOString(),
-                        engineer: localAudit.engineer,
+                        submittedAt: localAudit.completedAt || localAudit.submittedAt || new Date().toISOString(),
+                        engineer: localAudit.engineer || 'System Engineer',
                         services: localAudit.services || ['solar'] // Default to solar
                     };
                 }
@@ -145,8 +160,19 @@ export default function AuditDetail() {
             const element = document.getElementById('audit-report-content');
             if (!element) throw new Error("Report content not found");
 
+            // TEMPORARY: Show print header
+            const header = element.querySelector('.print-header');
+            if (header) header.classList.remove('hidden');
+
+            // Wait for image to render (critical for letterhead to appear)
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
             // Reduced scale to 1.5 to keep file size manageable (< 10MB usually)
             const canvas = await html2canvas(element, { scale: 1.5, useCORS: true });
+
+            // Re-hide print header
+            if (header) header.classList.add('hidden');
+
             const imgData = canvas.toDataURL('image/png');
 
             const pdf = new jsPDF('p', 'mm', 'a4');
@@ -479,10 +505,41 @@ export default function AuditDetail() {
             </div>
 
             {/* Smart Service-Specific Review */}
-            <div id="audit-report-content" className="bg-white rounded-xl shadow-sm overflow-hidden">
-                {renderServiceReview()}
-            </div>
+            <div id="audit-report-content" className="bg-white relative">
 
+                {/* PDF-Only Header (Hidden on screen, visible in PDF capture) */}
+                <div className="w-full hidden print-header">
+                    {/* Letterhead Background Wrapper - Slight overflow to fix white lines */}
+                    <div className="relative w-[102%] -ml-[1%] aspect-[4/1] mb-8">
+                        <img
+                            src="/letterhead.jpg"
+                            alt="Letterhead"
+                            className="absolute inset-0 w-full h-full object-cover"
+                        />
+
+                        {/* Contact Info - Strictly Aligned to Icons */}
+                        {/* Using explicit positioning to match the red lines/icons */}
+
+                        {/* PHONE - Top Icon (approx 20% down) */}
+                        {/* PHONE */}
+                        <div className="absolute top-[18%] right-[6%] text-right text-white z-10 font-serif font-bold text-lg tracking-wider drop-shadow-sm max-w-[250px]">
+                            {businessProfile?.phone || "+234 81 2065 3907"}
+                        </div>
+
+                        {/* EMAIL */}
+                        <div className="absolute top-[46%] right-[6%] text-right text-white z-10 font-serif font-bold text-lg tracking-wider drop-shadow-sm max-w-[250px] break-words">
+                            {businessProfile?.email || "info@primistine.com"}
+                        </div>
+
+                        {/* ADDRESS */}
+                        <div className="absolute top-[72%] right-[6%] text-right text-white z-10 font-serif font-bold text-lg tracking-wider leading-snug drop-shadow-sm max-w-[220px] ml-auto">
+                            {businessProfile?.address || "7 Fatola street, Abeokuta, Ogun State"}
+                        </div>
+                    </div>
+
+                    {renderServiceReview()}
+                </div>
+            </div>
         </div>
     );
 }

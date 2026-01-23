@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Phone, Mail, MapPin, Building, Calendar, FileText, MessageSquare, Clock, Plus, Tag, Paperclip, MoreHorizontal, CheckCircle2, X, Edit3, ArrowRight, Rocket, Users, DollarSign } from 'lucide-react';
+import { ArrowLeft, Phone, Mail, MapPin, Building, Calendar, FileText, MessageSquare, Clock, Plus, Tag, Paperclip, MoreHorizontal, CheckCircle2, X, Edit3, ArrowRight, Rocket, Users } from 'lucide-react';
 import clsx from 'clsx';
 import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import ActivityTimeline from '../components/ActivityTimeline';
 import { toast } from 'react-hot-toast';
 import { useLeads } from '../contexts/LeadsContext';
+import { auditService } from '../lib/services/auditService';
 import { PIPELINE_STAGES } from '../lib/constants';
 
 // Helper to map display service to internal key
@@ -305,7 +306,7 @@ const getStageInfo = (stageId) => {
 export default function LeadDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { moveLeadStage, addNote } = useLeads();
+    const { moveLeadStage, addNote, getLeadById } = useLeads();
     const [activeTab, setActiveTab] = useState('overview');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
@@ -320,21 +321,50 @@ export default function LeadDetailPage() {
 
     // Fetch Lead from Firestore
     useEffect(() => {
-        const fetchLead = async () => {
+        // 1. Try to get from context immediately (fast load)
+        const cachedLead = getLeadById(id);
+        if (cachedLead) {
+            console.log("Loaded lead from context cache:", cachedLead);
+            setLead(cachedLead);
+            setLoading(false); // Valid data to show immediately
+        }
+
+        // 2. Refresh from Server
+        const fetchLead = async (retryCount = 0) => {
             try {
+                console.log(`Fetching lead from server: ${id}, attempt: ${retryCount + 1}`);
                 const docRef = doc(db, 'leads', id);
                 const docSnap = await getDoc(docRef);
 
                 if (docSnap.exists()) {
                     setLead({ id: docSnap.id, ...docSnap.data() });
+                    setLoading(false);
                 } else {
-                    setError('Lead not found');
+                    if (retryCount < 3) {
+                        console.log(`Lead not found, retrying... (${retryCount + 1}/3)`);
+                        setTimeout(() => fetchLead(retryCount + 1), 1000);
+                        return;
+                    }
+                    console.error("Lead document not found in Firestore");
+
+                    // If we have cached lead, don't show full error, just warn? 
+                    // Or if we have cached lead, assume server is just lagging/permission issue but we have data.
+                    if (cachedLead) {
+                        console.warn("Server fetch failed, using cached data.");
+                        // Toast?
+                    } else {
+                        setError('Lead not found');
+                        setLoading(false);
+                    }
                 }
             } catch (err) {
                 console.error("Error fetching lead:", err);
-                setError('Failed to load lead details');
-            } finally {
-                setLoading(false);
+                if (cachedLead) {
+                    console.warn("Server fetch error, keeping cached data.");
+                } else {
+                    setError('Failed to load lead details');
+                    setLoading(false);
+                }
             }
         };
 
@@ -347,7 +377,7 @@ export default function LeadDetailPage() {
                 });
             });
         }
-    }, [id]);
+    }, [id, getLeadById]);
 
     const handleSaveLead = async (updates) => {
         try {
@@ -471,14 +501,47 @@ export default function LeadDetailPage() {
         const currentIndex = PIPELINE_STAGES.findIndex(s => s.id === lead.stage);
         if (currentIndex !== -1 && currentIndex < PIPELINE_STAGES.length - 1) {
             const nextStage = PIPELINE_STAGES[currentIndex + 1];
+
+            // GUARD: Strict Audit Workflow
+            // User cannot manually move to 'Audited' (audit) stage without an actual audit submission
+            if (nextStage.id === 'audit') {
+                const toastId = toast.loading("Verifying audit status...");
+                try {
+                    const audits = await auditService.getAuditByLeadId(id);
+                    // Check if any audit is completed or at least exists
+                    const validAudit = audits && audits.length > 0;
+
+                    if (!validAudit) {
+                        toast.error("Audit Required! Please complete a Site Audit before moving to this stage.", { id: toastId });
+                        return;
+                    }
+                    toast.dismiss(toastId);
+                } catch (err) {
+                    console.error("Audit check failed", err);
+                    toast.error("Failed to verify audit status", { id: toastId });
+                    return;
+                }
+            }
+
             await handleSaveLead({ stage: nextStage.id });
             setShowStagePrompt(false);
         }
     };
 
     const handleLaunchProject = async () => {
-        const toastId = toast.loading('Launching project...');
+        // GUARD: Project Creation requires Audit
+        const toastId = toast.loading('Verifying project requirements...');
         try {
+            const audits = await auditService.getAuditByLeadId(id);
+            const validAudit = audits && audits.length > 0;
+
+            if (!validAudit) {
+                toast.error("Site Audit Required. Projects must be based on a verified site audit.", { id: toastId, duration: 4000 });
+                // Optional: Prompt to schedule?
+                return;
+            }
+
+            toast.loading('Launching project...', { id: toastId });
             await createProjectFromLead(lead);
             toast.success('Project Launched Successfully! 🚀', { id: toastId });
             navigate('/projects');
@@ -501,11 +564,14 @@ export default function LeadDetailPage() {
                     <div>
                         <h1 className="text-2xl font-bold text-premium-blue-900">Lead Not Found</h1>
                         <p className="text-slate-500">The lead you're looking for doesn't exist or has been deleted.</p>
+                        <p className="text-xs text-slate-400 mt-2 font-mono">ID: {id}</p>
                     </div>
                 </div>
             </div>
         );
     }
+
+
 
     const stageInfo = getStageInfo(lead.stage);
 
@@ -539,7 +605,7 @@ export default function LeadDetailPage() {
                     </Link>
                     <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-3">
-                            <h1 className="text-xl sm:text-2xl font-black text-premium-blue-900 truncate tracking-tight">{lead.name}</h1>
+                            <h1 className="text-xl sm:text-3xl font-black text-premium-blue-900 truncate tracking-tighter">{lead.name}</h1>
                             <span className={clsx("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider", stageInfo.color)}>{stageInfo.name}</span>
                             {lead.auditPending && (
                                 <span className="px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
@@ -670,7 +736,7 @@ export default function LeadDetailPage() {
                     <div className="bg-white p-6 sm:p-8 rounded-[32px] border border-slate-100 shadow-xl shadow-slate-200/50">
                         <p className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] leading-none mb-6">Engagement Intelligence</p>
 
-                        <h3 className="text-sm font-black text-premium-blue-900 uppercase tracking-tight mb-4 flex items-center gap-2">
+                        <h3 className="text-sm font-black text-premium-blue-900 uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
                             <Users size={14} className="text-slate-400" /> Contact Protocols
                         </h3>
                         <div className="space-y-4">
@@ -699,8 +765,8 @@ export default function LeadDetailPage() {
 
                         <div className="my-8 border-t border-slate-100"></div>
 
-                        <h3 className="text-sm font-black text-premium-blue-900 uppercase tracking-tight mb-4 flex items-center gap-2">
-                            <DollarSign size={14} className="text-slate-400" /> Capital Projection
+                        <h3 className="text-sm font-black text-premium-blue-900 uppercase tracking-[0.1em] mb-4 flex items-center gap-2">
+                            Capital Projection
                         </h3>
                         <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
                             <div className="flex justify-between items-center text-sm">
@@ -806,47 +872,28 @@ export default function LeadDetailPage() {
                                     )}
                                 </div>
                             )}
-
                             {activeTab === 'activity' && (
-                                <div className="space-y-6">
-                                    <div className="flex gap-2 mb-6">
-                                        <input
-                                            type="text"
-                                            placeholder="Add a note..."
-                                            className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-premium-blue-500"
-                                            value={noteText}
-                                            onChange={(e) => setNoteText(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-                                        />
-                                        <button
-                                            onClick={handleAddNote}
-                                            className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg font-medium hover:bg-slate-200 text-sm"
-                                        >
-                                            Save
-                                        </button>
+                                <div className="space-y-8">
+                                    <div className="bg-slate-50/50 p-6 rounded-[24px] border border-slate-100 shadow-sm mb-6">
+                                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Add Log Entry</h4>
+                                        <div className="flex gap-3">
+                                            <input
+                                                type="text"
+                                                placeholder="Log a call, note, or update..."
+                                                className="flex-1 px-5 py-3 rounded-2xl bg-white border border-slate-100 focus:ring-2 focus:ring-premium-blue-900/10 focus:border-premium-blue-900/20 text-sm font-bold shadow-sm transition-all"
+                                                value={noteText}
+                                                onChange={(e) => setNoteText(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
+                                            />
+                                            <button
+                                                onClick={handleAddNote}
+                                                className="px-6 py-3 bg-premium-blue-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:shadow-xl active:scale-95 transition-all shadow-lg"
+                                            >
+                                                Log Activity
+                                            </button>
+                                        </div>
                                     </div>
-                                    <div className="space-y-6 relative before:absolute before:left-4 before:top-0 before:h-full before:w-px before:bg-slate-100">
-                                        {activities.map(activity => (
-                                            <div key={activity.id} className="relative pl-10">
-                                                <div className={clsx("absolute left-0 top-0 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center",
-                                                    activity.type === 'note' ? 'bg-yellow-100 text-yellow-600' :
-                                                        activity.type === 'status' ? 'bg-blue-100 text-blue-600' :
-                                                            activity.type === 'call' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'
-                                                )}>
-                                                    {activity.type === 'note' ? <FileText size={14} /> :
-                                                        activity.type === 'status' ? <CheckCircle2 size={14} /> :
-                                                            activity.type === 'call' ? <Phone size={14} /> : <Clock size={14} />}
-                                                </div>
-                                                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                                    <p className="text-sm text-slate-700">{activity.text}</p>
-                                                    <div className="flex justify-between items-center mt-2">
-                                                        <span className="text-xs font-bold text-slate-500">{activity.user}</span>
-                                                        <span className="text-xs text-slate-400">{activity.date}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    <ActivityTimeline activities={lead.activities} />
                                 </div>
                             )}
 
@@ -889,6 +936,6 @@ export default function LeadDetailPage() {
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

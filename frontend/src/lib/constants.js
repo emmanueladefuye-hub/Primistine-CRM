@@ -37,17 +37,13 @@ export const filterByRange = (data, range, referenceDate = getToday()) => {
     if (!data) return [];
     const anchor = new Date(referenceDate);
     return data.filter(item => {
-        // Handle Firestore timestamps or date strings
-        let itemDate;
-        if (item.createdAt && item.createdAt.toDate) {
-            itemDate = item.createdAt.toDate();
-        } else if (item.date) {
-            itemDate = new Date(item.date);
-        } else if (item.created_at) { // Alternate spelling
-            itemDate = new Date(item.created_at.toDate ? item.created_at.toDate() : item.created_at);
-        } else {
-            return true; // No date, keep it? Or exclude? Default to keep to avoid empty charts if data is bad.
-        }
+        // Handle Firestore timestamps or date strings robustly
+        const itemDate = ensureDate(item.createdAt || item.date || item.created_at);
+
+        // If the date is invalid (ensureDate returns current date as fallback, 
+        // but we might want to exclude really bad data if it returns true in original logic)
+        // Original logic returned true if no date found. Let's maintain that or improve it.
+        if (!item.createdAt && !item.date && !item.created_at) return true;
 
         if (range === 'day') {
             return itemDate.toDateString() === anchor.toDateString();
@@ -67,4 +63,19 @@ export const filterByRange = (data, range, referenceDate = getToday()) => {
         }
         return true;
     });
+};
+
+/**
+ * Robustly converts various date formats (ISO string, Firestore Timestamp, or Date object)
+ * into a standard Javascript Date object.
+ */
+export const ensureDate = (dateVal) => {
+    if (!dateVal) return new Date();
+    if (dateVal instanceof Date) return dateVal;
+    if (typeof dateVal.toDate === 'function') return dateVal.toDate(); // Firestore Timestamp
+    if (typeof dateVal === 'string') {
+        const d = new Date(dateVal);
+        return isNaN(d.getTime()) ? new Date() : d;
+    }
+    return new Date(dateVal) || new Date();
 };

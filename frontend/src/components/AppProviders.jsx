@@ -9,6 +9,8 @@ import { AuditsProvider } from '../contexts/AuditsContext';
 import { ClientsProvider } from '../contexts/ClientsContext';
 import { TeamsProvider } from '../contexts/TeamsContext';
 import { DeploymentsProvider } from '../contexts/DeploymentsContext';
+import { QuotesProvider } from '../contexts/QuotesContext';
+import { MessagesProvider } from '../contexts/MessagesContext';
 
 export default function AppProviders({ children }) {
     return (
@@ -16,17 +18,21 @@ export default function AppProviders({ children }) {
             <ProjectsProvider>
                 <TeamsProvider>
                     <DeploymentsProvider>
-                        <InventoryProvider>
-                            <IssuesProvider>
-                                <InvoicesProvider>
-                                    <LeadsProvider>
-                                        <AuditsProvider>
-                                            {children}
-                                        </AuditsProvider>
-                                    </LeadsProvider>
-                                </InvoicesProvider>
-                            </IssuesProvider>
-                        </InventoryProvider>
+                        <QuotesProvider>
+                            <InventoryProvider>
+                                <MessagesProvider>
+                                    <IssuesProvider>
+                                        <InvoicesProvider>
+                                            <LeadsProvider>
+                                                <AuditsProvider>
+                                                    {children}
+                                                </AuditsProvider>
+                                            </LeadsProvider>
+                                        </InvoicesProvider>
+                                    </IssuesProvider>
+                                </MessagesProvider>
+                            </InventoryProvider>
+                        </QuotesProvider>
                     </DeploymentsProvider>
                 </TeamsProvider>
             </ProjectsProvider>

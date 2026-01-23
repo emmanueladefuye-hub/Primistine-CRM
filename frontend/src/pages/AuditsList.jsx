@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Filter, Calendar, MapPin, User, CheckCircle2, AlertCircle, Clock, ChevronRight } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, MapPin, User, CheckCircle2, AlertCircle, Clock, ChevronRight, Smartphone } from 'lucide-react';
 import { useAudits } from '../contexts/AuditsContext';
 import clsx from 'clsx';
 import { Loader2 } from 'lucide-react';

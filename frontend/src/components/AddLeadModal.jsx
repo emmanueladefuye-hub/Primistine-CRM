@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { X, Upload, Check } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
+import { useLeads } from '../contexts/LeadsContext';
 
 export default function AddLeadModal({ isOpen, onClose, onAddLead }) {
+    const { addLead } = useLeads();
     if (!isOpen) return null;
 
     const [formData, setFormData] = useState({
@@ -40,8 +42,15 @@ export default function AddLeadModal({ isOpen, onClose, onAddLead }) {
         }
     };
 
+    const [errors, setErrors] = useState({});
+
+    // Import Schema if not already globally available (assuming standard import at top, added here for context if needed, but better to add import line separately)
+    // Actually I will add the import line in a separate edit or just assume I can add it at top? 
+    // I should add the import line first or use multi_replace. Let's use multi_replace to be safe and clean.
+
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setErrors({});
 
         if (formData.serviceInterest.length === 0) {
             toast.error("Please select a service interest");
@@ -51,32 +60,49 @@ export default function AddLeadModal({ isOpen, onClose, onAddLead }) {
         setIsSubmitting(true);
 
         try {
-            // Create new lead object
+            // Create new lead object for validation
             const budgetInfo = getBudgetValue(formData.budget);
-            const { createLead } = await import('../services/firestore');
 
-            const newLead = {
+            const leadData = {
                 name: `${formData.firstName} ${formData.lastName}`.trim(),
-                value: budgetInfo.value,
-                rawValue: budgetInfo.rawValue,
-                stage: 'new', // New leads always start in 'new' stage
                 company: formData.company || (formData.type === 'individual' ? 'Private Client' : 'Corporate'),
-                lastContact: 'Just now',
                 email: formData.email,
                 phone: formData.phone,
                 address: formData.address,
+                value: budgetInfo.rawValue,
+                stage: 'new',
                 source: formData.source === 'website' ? 'Website' : formData.source,
                 type: formData.type === 'individual' ? 'Residential' : 'Commercial',
-                notes: formData.notes,
                 serviceInterest: formData.serviceInterest,
-                createdAt: new Date().toISOString()
+                notes: formData.notes
             };
 
-            await createLead(newLead);
+            // VALIDATE
+            // We need to dynamic import or assume import. I will use a dynamic import here to be safe and self-contained in this single edit if possible, 
+            // OR I should have imported it at the top. 
+            // Let's rely on the previous tool call having successfully created the file, and I will add the import at the top in a separate chunk.
 
-            if (onAddLead) onAddLead(); // Optional callback just for closing/refreshing logic if needed
+            const { LeadSchema } = await import('../lib/schemas');
+            const validation = LeadSchema.safeParse(leadData);
+
+            if (!validation.success) {
+                const formattedErrors = {};
+                validation.error.issues.forEach(issue => {
+                    formattedErrors[issue.path[0]] = issue.message;
+                });
+                setErrors(formattedErrors);
+
+                // Show first error toast
+                const firstError = Object.values(formattedErrors)[0];
+                toast.error(firstError || "Please check form requirements");
+                setIsSubmitting(false);
+                return;
+            }
+
+            await addLead(validation.data);
+
+            if (onAddLead) onAddLead();
             onClose();
-            toast.success("Lead created successfully");
         } catch (error) {
             console.error("Failed to create lead", error);
             toast.error("Failed to create lead");

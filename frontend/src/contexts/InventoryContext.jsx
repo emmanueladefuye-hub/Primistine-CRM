@@ -105,6 +105,51 @@ export function InventoryProvider({ children }) {
         }
     };
 
+    /**
+     * Deduct material from inventory for a project.
+     * This is called when a material is marked as "Installed" in a project.
+     * @param {string} inventoryId - The ID of the inventory item
+     * @param {number} quantity - The quantity to deduct
+     * @param {string} projectId - The project ID for tracking
+     * @param {string} projectName - The project name for logging
+     */
+    const deductForProject = async (inventoryId, quantity, projectId, projectName) => {
+        if (!inventoryId || !quantity) return;
+
+        try {
+            await updateStock(inventoryId, -Math.abs(quantity), {
+                reason: 'Project Material Usage',
+                projectId,
+                projectName,
+                user: 'System'
+            });
+            return true;
+        } catch (err) {
+            console.error('Failed to deduct from inventory:', err);
+            return false;
+        }
+    };
+
+    /**
+     * Restore material to inventory (for returns or cancelled usage).
+     */
+    const restoreFromProject = async (inventoryId, quantity, projectId, projectName) => {
+        if (!inventoryId || !quantity) return;
+
+        try {
+            await updateStock(inventoryId, Math.abs(quantity), {
+                reason: 'Project Material Return',
+                projectId,
+                projectName,
+                user: 'System'
+            });
+            return true;
+        } catch (err) {
+            console.error('Failed to restore inventory:', err);
+            return false;
+        }
+    };
+
     // 4. Inventory Valuation (Sum of price * stock)
     const totalInventoryValue = inventory ? inventory.reduce((sum, item) => sum + (Number(item.price || 0) * Number(item.stock || 0)), 0) : 0;
     const totalInventoryDisplay = `₦${(totalInventoryValue / 1000000).toFixed(2)}M`;
@@ -123,6 +168,7 @@ export function InventoryProvider({ children }) {
             inventory, loading, error,
             addItem, updateItem, updateStock,
             getItemById, deleteItem, resetInventory,
+            deductForProject, restoreFromProject,
             totalInventoryValue, totalInventoryDisplay
         }}>
             {children}

@@ -24,7 +24,7 @@ export default function ClientsList() {
             (c.email || '').toLowerCase().includes(term) ||
             (c.phone || '').includes(term) ||
             (c.contact || '').toLowerCase().includes(term) ||
-            (c.location || '').toLowerCase().includes(term);
+            (c.address || '').toLowerCase().includes(term);
 
         return matchesType && matchesSearch;
     });
@@ -115,7 +115,7 @@ export default function ClientsList() {
                             <div className="mb-4 flex-1">
                                 <h3 className="text-lg font-bold text-slate-800 group-hover:text-premium-blue-700 transition-colors mb-1">{client.name}</h3>
                                 <div className="flex items-center gap-1 text-xs text-slate-500">
-                                    <MapPin size={12} /> {client.location}
+                                    <MapPin size={12} /> {client.address || 'Address pending'}
                                 </div>
                             </div>
 

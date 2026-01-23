@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ChevronLeft, ChevronRight, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 import primistineLogo from '../assets/primistine-logo.png';
+import { PremiumButton } from './ui';
 
 export default function Sidebar({ isOpen, onClose }) {
     const { currentUser, logout, hasPermission } = useAuth();
@@ -106,11 +107,7 @@ export default function Sidebar({ isOpen, onClose }) {
 
                         return (
                             <div key={idx} className={clsx("mb-6", isCollapsed ? "lg:px-2" : "px-4")}>
-                                {(!isCollapsed || isOpen) && (
-                                    <h3 className="text-xs uppercase text-premium-blue-500 font-semibold mb-2 px-2 whitespace-nowrap">
-                                        {group.category}
-                                    </h3>
-                                )}
+
                                 <div className="space-y-1">
                                     {visibleItems.map((item) => (
                                         <NavLink
@@ -160,15 +157,21 @@ export default function Sidebar({ isOpen, onClose }) {
                         </div>
 
                         {!isCollapsed && (
-                            <button
-                                onClick={() => {
-                                    if (window.confirm("Are you sure you want to log out?")) logout();
-                                }}
-                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors"
-                                title="Log Out"
-                            >
-                                <LogOut size={18} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <div className="hidden xl:flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px] text-slate-400 font-bold uppercase pointer-events-none">
+                                    <span className="text-[8px]">⌘</span> K
+                                </div>
+                                <PremiumButton
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        if (window.confirm("Are you sure you want to log out?")) logout();
+                                    }}
+                                    className="p-2 text-slate-400 hover:text-red-400"
+                                    title="Log Out"
+                                    icon={LogOut}
+                                />
+                            </div>
                         )}
 
                         {isCollapsed && (

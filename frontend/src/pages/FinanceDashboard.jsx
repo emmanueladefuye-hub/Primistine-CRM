@@ -1,10 +1,10 @@
 import { DollarSign, TrendingUp, TrendingDown, FileText, Download, Filter } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import clsx from 'clsx';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import TimeFilter from '../components/TimeFilter';
-import { useCollection } from '../hooks/useFirestore';
+import { useProjects } from '../contexts/ProjectsContext';
 import { useInvoices } from '../contexts/InvoicesContext';
 import { orderBy } from 'firebase/firestore';
 import Skeleton from '../components/ui/Skeleton';
@@ -13,58 +13,55 @@ export default function FinanceDashboard() {
     const [timeRange, setTimeRange] = useState('day');
     const [referenceDate, setReferenceDate] = useState(new Date().toISOString().split('T')[0]);
 
-    // Live Data
-    const { invoices, loading } = useInvoices();
-
     const parseValue = (val) => {
         if (typeof val === 'number') return val;
         if (typeof val === 'string') return parseFloat(val.replace(/[^0-9.]/g, '')) || 0;
         return 0;
     };
 
-    // 1. Total Revenue (Sum of PAID invoices)
-    const paidInvoices = invoices.filter(inv => inv.status === 'Paid');
-    const totalRevenueValue = paidInvoices.reduce((sum, inv) => sum + parseValue(inv.subtotal || inv.total), 0);
-    const totalRevenue = `₦${(totalRevenueValue / 1000000).toFixed(2)}M`;
-
-    // 2. Outstanding (Sum of PENDING/OVERDUE)
-    const pendingInvoices = invoices.filter(inv => inv.status === 'Pending' || inv.status === 'Overdue');
-    const totalOutstandingValue = pendingInvoices.reduce((sum, inv) => sum + parseValue(inv.subtotal || inv.total), 0);
-    const totalOutstanding = `₦${(totalOutstandingValue / 1000000).toFixed(2)}M`;
-
-    // 3. Expenses (0 for now as we lack an expense collection)
-    const totalExpensesValue = 0;
-    const totalExpenses = `₦${(totalExpensesValue / 1000000).toFixed(2)}M`;
-
-    // 4. Net Profit
-    const netProfitValue = totalRevenueValue - totalExpensesValue;
-    const netProfit = `₦${(netProfitValue / 1000000).toFixed(2)}M`;
-
-    // Chart Data Construction
-    // Group invoices by month for the chart
-    const chartDataMap = {};
-    invoices.forEach(inv => {
-        const date = new Date(inv.date);
-        const month = date.toLocaleString('default', { month: 'short' });
-        if (!chartDataMap[month]) chartDataMap[month] = { month, revenue: 0, expenses: 0 };
-        if (inv.status === 'Paid') {
-            const amount = parseValue(inv.subtotal || inv.total);
-            chartDataMap[month].revenue += amount;
-            chartDataMap[month].expenses += 0; // Real expense tracking needed
-        }
-    });
-    // Convert map to array and sorting can be tricky with just month names, 
-    // so we'll use a fixed list of months to order them or just use what we have found.
-    // For simplicity, let's just use the current data map values.
-    const chartData = Object.values(chartDataMap);
-    if (chartData.length === 0) {
-        // Fallback if no data
-        chartData.push({ month: 'No Data', revenue: 0, expenses: 0 });
-    }
+    // Live Data
+    const { invoices, loading } = useInvoices();
 
     // 5. Active Projects Count
-    const { data: projects } = useCollection('projects');
-    const activeProjectsCount = projects.filter(p => p.status !== 'Completed').length;
+    const { projects } = useProjects();
+    const activeProjectsCount = useMemo(() => (projects || []).filter(p => p.status !== 'Completed').length, [projects]);
+
+    const stats = useMemo(() => {
+        const paidInvoices = invoices.filter(inv => inv.status === 'Paid');
+        const totalRevenueValue = paidInvoices.reduce((sum, inv) => sum + parseValue(inv.subtotal || inv.total), 0);
+        const totalRevenue = `₦${(totalRevenueValue / 1000000).toFixed(2)}M`;
+
+        const pendingInvoices = invoices.filter(inv => inv.status === 'Pending' || inv.status === 'Overdue');
+        const totalOutstandingValue = pendingInvoices.reduce((sum, inv) => sum + parseValue(inv.subtotal || inv.total), 0);
+        const totalOutstanding = `₦${(totalOutstandingValue / 1000000).toFixed(2)}M`;
+
+        const totalExpensesValue = 0;
+        const totalExpenses = `₦${(totalExpensesValue / 1000000).toFixed(2)}M`;
+
+        const netProfitValue = totalRevenueValue - totalExpensesValue;
+        const netProfit = `₦${(netProfitValue / 1000000).toFixed(2)}M`;
+
+        const chartDataMap = {};
+        invoices.forEach(inv => {
+            const date = new Date(inv.date);
+            const month = date.toLocaleString('default', { month: 'short' });
+            if (!chartDataMap[month]) chartDataMap[month] = { month, revenue: 0, expenses: 0 };
+            if (inv.status === 'Paid') {
+                const amount = parseValue(inv.subtotal || inv.total);
+                chartDataMap[month].revenue += amount;
+            }
+        });
+        const chartData = Object.values(chartDataMap);
+        if (chartData.length === 0) chartData.push({ month: 'No Data', revenue: 0, expenses: 0 });
+
+        return {
+            totalRevenue,
+            totalOutstanding,
+            totalExpenses,
+            netProfit,
+            chartData
+        };
+    }, [invoices]);
 
     return (
         <div className="space-y-8 max-w-7xl mx-auto pb-8">
@@ -94,7 +91,7 @@ export default function FinanceDashboard() {
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-emerald-900/5 transition-all">
                     <div>
                         <p className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] leading-none mb-3">Total Revenue</p>
-                        <h3 className="text-2xl font-black text-premium-blue-900 tracking-tight">{totalRevenue}</h3>
+                        <h3 className="text-2xl font-black text-premium-blue-900 tracking-tight">{stats.totalRevenue}</h3>
                     </div>
                     <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform"><TrendingUp size={24} strokeWidth={2.5} /></div>
                 </div>
@@ -102,7 +99,7 @@ export default function FinanceDashboard() {
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-amber-900/5 transition-all">
                     <div>
                         <p className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] leading-none mb-3">Outstanding</p>
-                        <h3 className="text-2xl font-black text-premium-blue-900 tracking-tight">{totalOutstanding}</h3>
+                        <h3 className="text-2xl font-black text-premium-blue-900 tracking-tight">{stats.totalOutstanding}</h3>
                     </div>
                     <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl group-hover:scale-110 transition-transform"><FileText size={24} strokeWidth={2.5} /></div>
                 </div>
@@ -110,7 +107,7 @@ export default function FinanceDashboard() {
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between group hover:shadow-xl hover:shadow-premium-gold-900/5 transition-all">
                     <div>
                         <p className="text-slate-400 text-[10px] uppercase font-black tracking-[0.2em] leading-none mb-3">Net Profit</p>
-                        <h3 className="text-2xl font-black text-premium-gold-600 italic tracking-tight">{netProfit}</h3>
+                        <h3 className="text-2xl font-black text-premium-gold-600 italic tracking-tight">{stats.netProfit}</h3>
                     </div>
                     <div className="p-4 bg-premium-gold-50 text-premium-gold-600 rounded-2xl group-hover:scale-110 transition-transform"><DollarSign size={24} strokeWidth={2.5} /></div>
                 </div>
@@ -135,7 +132,7 @@ export default function FinanceDashboard() {
                     </div>
                     <div className="h-80 w-full">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={chartData}>
+                            <AreaChart data={stats.chartData}>
                                 <defs>
                                     <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="5%" stopColor="#1e3a8a" stopOpacity={0.15} />

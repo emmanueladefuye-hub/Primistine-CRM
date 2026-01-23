@@ -3,8 +3,10 @@ import { User, FileText, Calendar, Plus, Send } from 'lucide-react';
 import { useCollection } from '../../../hooks/useFirestore';
 import { db } from '../../../lib/firebase';
 import { collection, addDoc, serverTimestamp, orderBy, query, where } from 'firebase/firestore';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function TabOverview({ project }) {
+    const { userProfile } = useAuth();
     const [newNote, setNewNote] = useState("");
 
     // Live Notes
@@ -20,7 +22,7 @@ export default function TabOverview({ project }) {
             await addDoc(collection(db, 'project_notes'), {
                 projectId: project.id,
                 text: newNote,
-                author: "Admin User", // TODO: Replace with real auth user
+                author: userProfile?.name || userProfile?.displayName || "Internal User",
                 createdAt: serverTimestamp()
             });
             setNewNote("");
