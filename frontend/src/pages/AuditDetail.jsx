@@ -8,6 +8,8 @@ import html2canvas from 'html2canvas';
 import { toast } from 'react-hot-toast';
 import { db } from '../lib/firebase';
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { projectService } from '../lib/services/projectService';
+import { useAuth } from '../contexts/AuthContext';
 
 // Import Specific Review Components
 import { CCTVReview } from '../components/audits/reviews/CCTVReview';
@@ -27,6 +29,7 @@ export default function AuditDetail() {
     const [isMovingToProject, setIsMovingToProject] = useState(false);
     const [showMoveModal, setShowMoveModal] = useState(false);
     const [businessProfile, setBusinessProfile] = useState(null);
+    const { currentUser } = useAuth();
 
     // Fetch Business Profile for PDF
     useEffect(() => {
@@ -351,10 +354,9 @@ export default function AuditDetail() {
         const toastId = toast.loading('Creating project from audit...');
 
         try {
-            // 1. Intelligent Data Mapping
             const projectData = {
                 name: `${primaryService === 'solar' ? 'Solar Installation' : primaryService === 'cctv' ? 'CCTV Security System' : 'Electrical'} for ${adaptedData.universal?.clientName}`,
-                clientId: audit.client?.id || 'unknown', // Link to client
+                clientId: audit.client?.id || 'unknown',
                 clientName: adaptedData.universal?.clientName,
                 auditId: id,
                 leadId: audit.client?.leadId || null,
@@ -363,8 +365,6 @@ export default function AuditDetail() {
                 progress: 0,
                 health: 'healthy',
                 value: adaptedData.auditResults.totalCost || 0,
-                rawValue: adaptedData.auditResults.totalCost || 0,
-                // Map Specs
                 specs: {
                     serviceType: primaryService,
                     systemSize: adaptedData.auditResults.recSolarResult || 0,
@@ -372,26 +372,18 @@ export default function AuditDetail() {
                     inverterSize: adaptedData.auditResults.recInverter || 0,
                     cameraCount: adaptedData.auditResults.totalCameras || 0
                 },
-                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // +30 days default
-                createdAt: serverTimestamp(),
+                description: `Project auto-generated from audit report. Service: ${primaryService}`,
                 createdFrom: 'audit'
             };
 
-            // 2. Create Project
-            const projectRef = await addDoc(collection(db, 'projects'), projectData);
+            const result = await projectService.createProjectFromX('audit', id, projectData, currentUser);
 
-            // 3. Update Audit
-            // await auditService.updateAudit(id, { moved_to_project: true, projectId: projectRef.id }); 
-            // Mocking update since service might not have update method exposed directly in context
-            // In real app, we would call updateDoc on audit ref
-
-            setAudit(prev => ({ ...prev, moved_to_project: true, projectId: projectRef.id }));
+            setAudit(prev => ({ ...prev, moved_to_project: true, projectId: result.id }));
 
             toast.success('Project created successfully!', { id: toastId });
             setShowMoveModal(false);
 
-            // 4. Redirect
-            navigate(`/projects/${projectRef.id}`);
+            navigate(`/projects/${result.id}`);
 
         } catch (error) {
             console.error("Failed to move to project:", error);

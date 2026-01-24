@@ -81,31 +81,23 @@ export function useScopedCollection(collectionName, baseConstraints = []) {
 
     if (scope === 'all' || scope === true) {
         // No extra filters needed
-    } else if (scope === 'own') {
+    } else if (scope === 'own' && userProfile.uid) {
         const field = FIELD_MAP[collectionName]?.own || 'createdBy';
         scopeConstraints.push(where(field, '==', userProfile.uid));
-    } else if (scope === 'team') {
+    } else if (scope === 'team' && userProfile.teamId) {
         const field = FIELD_MAP[collectionName]?.team || 'teamId';
-        // If user has no team, they see nothing (or maybe 'unassigned'?)
-        // Safer to show nothing.
-        const userTeamId = userProfile.teamId || 'no_team_assigned';
-        scopeConstraints.push(where(field, '==', userTeamId));
-    } else if (scope === 'assigned') {
+        scopeConstraints.push(where(field, '==', userProfile.teamId));
+    } else if (scope === 'assigned' && userProfile.uid) {
         const field = FIELD_MAP[collectionName]?.assigned || 'assignedTo';
 
-        // Check if the field is array type in schema (Projects used 'team' array)
         if ((collectionName === 'projects' && field === 'team') || (collectionName === 'messages' && field === 'participants')) {
             scopeConstraints.push(where(field, 'array-contains', userProfile.uid));
         } else {
-            // Default assumes single value match, unless we know it's array
-            // Ideally we need schema knowledge. 
-            // For now, let's assume 'assignedTo' is single UID for Audits, array for others?
-            // User plan: "Audits: Assigned". Usually assigned to 1 auditor.
             scopeConstraints.push(where(field, '==', userProfile.uid));
         }
-    } else {
-        // Unknown scope string? Block access.
-        return { data: [], loading: false, error: "Invalid permission scope", accessDenied: true };
+    } else if (scope !== 'all' && scope !== true) {
+        // If we expected a specific scope but don't have the ID, defer or return no access
+        return { data: [], loading: false, error: "Missing required profile ID for scope", accessDenied: true };
     }
 
     // 3. Call Hook

@@ -107,6 +107,11 @@ export default function Sidebar({ isOpen, onClose }) {
 
                         return (
                             <div key={idx} className={clsx("mb-6", isCollapsed ? "lg:px-2" : "px-4")}>
+                                {!isCollapsed && (
+                                    <h3 className="px-3 mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-premium-blue-400 opacity-60">
+                                        {group.category}
+                                    </h3>
+                                )}
 
                                 <div className="space-y-1">
                                     {visibleItems.map((item) => (
@@ -116,7 +121,7 @@ export default function Sidebar({ isOpen, onClose }) {
                                             onClick={() => window.innerWidth < 1024 && onClose()}
                                             title={isCollapsed ? item.name : ''}
                                             className={({ isActive }) => clsx(
-                                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                                                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors relative group/link",
                                                 isActive
                                                     ? "bg-premium-blue-800 text-premium-gold-400 shadow-sm"
                                                     : "text-slate-400 hover:bg-premium-blue-800/50 hover:text-white",
@@ -125,10 +130,13 @@ export default function Sidebar({ isOpen, onClose }) {
                                         >
                                             <item.icon size={20} className="shrink-0" />
                                             <span className={clsx(
-                                                "whitespace-nowrap transition-all duration-300",
+                                                "whitespace-nowrap transition-all duration-300 flex items-center gap-2",
                                                 isCollapsed ? "lg:w-0 lg:opacity-0" : "w-auto opacity-100"
                                             )}>
                                                 {item.name}
+                                                {item.path === '/acquisition' && !isCollapsed && (
+                                                    <span className="px-1.5 py-0.5 bg-premium-gold-500 text-premium-blue-900 text-[8px] font-black rounded-md animate-pulse">NEW</span>
+                                                )}
                                             </span>
                                         </NavLink>
                                     ))}

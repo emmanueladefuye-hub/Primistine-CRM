@@ -45,6 +45,15 @@ export const auditService = {
                 serviceTypes: cleanData.services || []
             }, { merge: true });
 
+            // Link to lead if leadId exists
+            if (cleanData.client?.leadId) {
+                const leadRef = doc(db, 'leads', cleanData.client.leadId);
+                await updateDoc(leadRef, {
+                    hasAudit: true,
+                    updatedAt: serverTimestamp()
+                });
+            }
+
             return auditId;
         } catch (error) {
             console.error("Error saving audit to Firebase:", error);

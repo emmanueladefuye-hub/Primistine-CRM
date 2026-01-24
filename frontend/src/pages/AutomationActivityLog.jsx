@@ -1,38 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, onSnapshot, where } from 'firebase/firestore';
+import { orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useCollection } from '../hooks/useFirestore';
 import { Activity, Server, Zap, AlertCircle, CheckCircle2, RefreshCw, Clock, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AutomationActivityLog() {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, error, automation
+    // Unified Hook-based logging (CRM-wide fix)
+    const logQuery = React.useMemo(() => [orderBy('timestamp', 'desc'), limit(50)], []);
+    const { data: rawLogs, loading } = useCollection('logs', logQuery);
 
-    useEffect(() => {
-        // Query last 50 logs
-        const q = query(
-            collection(db, 'logs'),
-            orderBy('timestamp', 'desc'),
-            limit(50)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedLogs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                // Safety check for timestamp
-                timestamp: doc.data().timestamp?.toDate() || new Date()
-            }));
-            setLogs(fetchedLogs);
-            setLoading(false);
-        }, (error) => {
-            console.error("Error fetching logs:", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []);
+    const logs = React.useMemo(() => {
+        return (rawLogs || []).map(log => ({
+            ...log,
+            timestamp: log.timestamp?.toDate ? log.timestamp.toDate() : new Date(log.timestamp || Date.now())
+        }));
+    }, [rawLogs]);
 
     const filteredLogs = logs.filter(log => {
         if (filter === 'all') return true;
@@ -63,8 +47,8 @@ export default function AutomationActivityLog() {
                             key={f}
                             onClick={() => setFilter(f)}
                             className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${filter === f
-                                    ? 'bg-premium-blue-900 text-white shadow-lg'
-                                    : 'text-slate-500 hover:bg-slate-50'
+                                ? 'bg-premium-blue-900 text-white shadow-lg'
+                                : 'text-slate-500 hover:bg-slate-50'
                                 }`}
                         >
                             {f}

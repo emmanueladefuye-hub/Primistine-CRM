@@ -1,12 +1,17 @@
-import { LayoutDashboard, Users, FileText, Briefcase, ShoppingCart, DollarSign, BarChart3, Settings, HelpCircle, MessageSquare, Calendar, AlertCircle, Activity } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Briefcase, ShoppingCart, DollarSign, BarChart3, Settings, HelpCircle, MessageSquare, Calendar, AlertCircle, Activity, Globe } from "lucide-react";
 
 export const NAV_LINKS = [
     {
         category: "Overview",
         items: [
             { name: "Executive", icon: LayoutDashboard, path: "/executive", permission: { resource: 'financials', action: 'view' } },
-            // Everyone likely has access to at least ONE dashboard, but "Executive" implies money. 
-            // Sales dashboard is separate.
+        ]
+    },
+    {
+        category: "Lead Acquisition",
+        items: [
+            { name: "Acquisition DB", icon: Activity, path: "/acquisition", permission: { resource: 'leads', action: 'view' } },
+            { name: "Landing Page", icon: Globe, path: "/inquiry" },
         ]
     },
     {

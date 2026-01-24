@@ -21,18 +21,26 @@ export function useCollection(collectionName, _constraints = []) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // We use a ref or JSON.stringify in dependency array to prevent infinite loops 
-    // if a new array is passed on every render. 
-    // For simplicity here, we assume constraints are stable or memoized by caller,
-    // or we stringify them for the effect dependency.
-    const queryKey = JSON.stringify(_constraints);
+    // We filter null/undefined constraints to prevent Firestore internal assertion errors
+    const validConstraints = _constraints.filter(c => !!c);
+
+    // Create a stable key for the useEffect dependency
+    // Stringifying only the cleaned constraints ensures the hook only re-runs when actual filters change.
+    const queryKey = JSON.stringify(validConstraints);
 
     useEffect(() => {
         setLoading(true);
         let q = collection(db, collectionName);
 
-        if (_constraints && _constraints.length > 0) {
-            q = query(q, ..._constraints);
+        if (validConstraints.length > 0) {
+            try {
+                q = query(q, ...validConstraints);
+            } catch (err) {
+                console.error("Invalid Firestore query constraints:", err);
+                setError("Query composition failed");
+                setLoading(false);
+                return;
+            }
         }
 
         const unsubscribe = onSnapshot(q,

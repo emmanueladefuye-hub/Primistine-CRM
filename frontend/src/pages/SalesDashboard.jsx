@@ -52,8 +52,41 @@ const LeadActionMenu = ({ lead, onClose, anchorEl }) => {
                 icon: '🚀',
                 style: { borderRadius: '10px', background: '#1e1b4b', color: '#fff' },
             });
-        } catch (err) {
-            toast.error("Failed to update stage");
+        } catch (error) {
+            if (error.code === 'WORKFLOW_VALIDATION_FAILED') {
+                toast.error((t) => (
+                    <div className="flex flex-col gap-3 text-slate-800">
+                        <p className="font-bold text-sm">Prerequisite Missing</p>
+                        <p className="text-xs opacity-80">{error.message}</p>
+                        {(error.stageId === 'audit' || error.stageId === 'proposal') && (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        toast.dismiss(t.id);
+                                        // Since we don't have navigate here directly, we'd need to pass it or use window.location
+                                        // But the component is a child of SalesDashboard which HAS navigate.
+                                        // Wait, LeadActionMenu is outside SalesDashboard's scope? No, it's defined in the same file.
+                                        // I'll use window.location or if navigate is available in scope.
+                                        // Checked SalesDashboard: navigate is NOT there yet, I'll add it.
+                                        window.location.href = '/audits/new';
+                                    }}
+                                    className="px-3 py-1.5 bg-premium-blue-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    Run Audit Now
+                                </button>
+                                <button
+                                    onClick={() => toast.dismiss(t.id)}
+                                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ), { duration: 6000 });
+            } else {
+                toast.error("Failed to update stage");
+            }
         }
         onClose();
     };
@@ -173,9 +206,16 @@ const LeadCard = React.memo(({ lead, index, onContact }) => {
                 >
                     <div className="flex justify-between items-start mb-3">
                         <div className="flex flex-col gap-1">
-                            <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-100 uppercase tracking-widest truncate max-w-[120px]" title={lead.company}>
-                                {lead.company}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-100 uppercase tracking-widest truncate max-w-[100px]" title={lead.company}>
+                                    {lead.company}
+                                </span>
+                                {lead.attribution?.source && (
+                                    <span className="text-[8px] font-black text-premium-gold-600 uppercase tracking-tighter bg-premium-gold-50 px-1.5 py-0.5 rounded">
+                                        {lead.attribution.source}
+                                    </span>
+                                )}
+                            </div>
                             {isStale && (
                                 <span className="flex items-center gap-1 text-[8px] font-black text-amber-600 uppercase tracking-tighter animate-pulse">
                                     <Clock size={8} /> {daysInStage}d Stale
@@ -281,7 +321,36 @@ export default function SalesDashboard() {
             await moveLeadStage(draggableId, destination.droppableId);
             toast.success('Pipeline Updated', { icon: '🎯' });
         } catch (error) {
-            toast.error('Failed to move lead');
+            if (error.code === 'WORKFLOW_VALIDATION_FAILED') {
+                const nextStage = PIPELINE_STAGES.find(s => s.id === error.stageId);
+                toast.error((t) => (
+                    <div className="flex flex-col gap-3">
+                        <p className="font-bold text-sm">Prerequisite Missing</p>
+                        <p className="text-xs opacity-80">{error.message}</p>
+                        {(error.stageId === 'audit' || error.stageId === 'proposal') && (
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        toast.dismiss(t.id);
+                                        navigate('/audits/new');
+                                    }}
+                                    className="px-3 py-1.5 bg-premium-blue-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    Run Audit Now
+                                </button>
+                                <button
+                                    onClick={() => toast.dismiss(t.id)}
+                                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ), { duration: 6000 });
+            } else {
+                toast.error('Failed to move lead');
+            }
         }
     };
 

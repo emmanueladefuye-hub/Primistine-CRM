@@ -3,6 +3,7 @@ import { db, rtdb } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc, orderBy, serverTimestamp, query, where, onSnapshot, limit } from 'firebase/firestore';
 import { ref, set, onValue, push, serverTimestamp as rtdbTimestamp } from 'firebase/database';
 import { useAuth } from './AuthContext';
+import { useCollection } from '../hooks/useFirestore';
 import { usePaginatedCollection } from '../hooks/usePaginatedCollection';
 import { toast } from 'react-hot-toast';
 import { useState, useEffect } from 'react';
@@ -19,22 +20,11 @@ export function useMessages() {
 
 export function MessagesProvider({ children }) {
     const { currentUser, userProfile } = useAuth();
+    // Unified Hook-based collections (CRM-wide fix)
+    const { data: channels, loading: channelsLoading } = useCollection('channels');
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(true);
     const [typingUsers, setTypingUsers] = useState({}); // { threadId: { userId: true } }
-
-    const [channels, setChannels] = useState([]);
-
-    // Channel Listener
-    useEffect(() => {
-        if (!currentUser || !userProfile) return;
-        const channelsRef = collection(db, 'channels');
-        const q = query(channelsRef);
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            setChannels(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        }, (err) => console.error("Channels sync error:", err));
-        return () => unsubscribe();
-    }, [currentUser, userProfile]);
 
     // Paginated messages listener (Phase 2)
     const messagesQuery = useMemo(() => {
@@ -61,32 +51,26 @@ export function MessagesProvider({ children }) {
         }
     }, [currentUser, messagesQuery]);
 
-    // Track state (Real-time fallback for now, but paged is preferred for history)
+    // Live Messages (Top 10 for notifications/sync)
+    const liveMessagesQuery = React.useMemo(() => {
+        if (!messagesQuery) return null;
+        return [...messagesQuery, limit(10)];
+    }, [messagesQuery]);
+
+    const { data: liveMsgs } = useCollection(liveMessagesQuery ? 'messages' : null, liveMessagesQuery || []);
+
     useEffect(() => {
-        if (!currentUser || !userProfile || !messagesQuery) return;
-
-        // We still keep a small real-time listener for "New" messages
-        const messagesRef = collection(db, 'messages');
-        const q = query(messagesRef, ...messagesQuery, limit(10));
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            // Merge with local state or just handle notifications
-            // For now, we update the main messages list with the union
-            const newMsgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (liveMsgs?.length > 0) {
             setMessages(prev => {
-                const combined = [...newMsgs, ...prev];
-                // Deduplicate by ID
+                const combined = [...liveMsgs, ...prev];
                 return Array.from(new Map(combined.map(m => [m.id, m])).values())
                     .sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
             });
             setLoading(false);
-        }, (err) => {
-            console.error("Messages sync error:", err);
+        } else if (liveMsgs) {
             setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, [currentUser, userProfile]);
+        }
+    }, [liveMsgs]);
 
     // Real-time typing indicators
     useEffect(() => {

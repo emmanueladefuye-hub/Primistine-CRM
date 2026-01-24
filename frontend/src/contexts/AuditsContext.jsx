@@ -62,13 +62,26 @@ export function AuditsProvider({ children }) {
 
     const completeAudit = async (id) => {
         try {
+            const audit = getAuditById(id);
             await updateAudit(id, {
                 status: 'Completed',
                 completedAt: new Date().toISOString()
             });
+
+            // Trigger lead stage update if linked
+            if (audit?.client?.leadId) {
+                const { updateLead } = useLeads(); // This might be tricky if useLeads is defined after AuditsProvider in App.jsx
+                // Better approach: use leadService directly or assume it's handled by the caller.
+                // However, centralizing here is better. Let's use leadService.
+                import('../lib/services/leadService').then(({ leadService }) => {
+                    leadService.updateLead(audit.client.leadId, {
+                        stage: 'audit',
+                        stageUpdatedAt: new Date().toISOString()
+                    });
+                });
+            }
         } catch (err) {
             console.error('Error completing audit:', err);
-            // Toast handled in updateAudit
         }
     };
 

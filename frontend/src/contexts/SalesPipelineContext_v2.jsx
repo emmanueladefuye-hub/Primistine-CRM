@@ -55,11 +55,21 @@ export function SalesPipelineProvider({ children }) {
     const loading = leadsLoading || quotesLoading || clientsLoading || pagedLoading;
 
     if (!currentUser) {
+        const fallbackValue = {
+            loading: false,
+            leads: [],
+            pagedLeads: [],
+            clients: [],
+            quotes: [],
+            leadsHasMore: false,
+            loadMoreLeads: () => { },
+            pipelineStages: PIPELINE_STAGES
+        };
         return (
-            <SalesPipelineContext.Provider value={{ loading: false }}>
-                <LeadsContext.Provider value={{ loading: false }}>
-                    <ClientsContext.Provider value={{ loading: false }}>
-                        <QuotesContext.Provider value={{ loading: false }}>
+            <SalesPipelineContext.Provider value={fallbackValue}>
+                <LeadsContext.Provider value={fallbackValue}>
+                    <ClientsContext.Provider value={fallbackValue}>
+                        <QuotesContext.Provider value={fallbackValue}>
                             {children}
                         </QuotesContext.Provider>
                     </ClientsContext.Provider>

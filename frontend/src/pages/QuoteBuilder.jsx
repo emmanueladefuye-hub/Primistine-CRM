@@ -11,11 +11,13 @@ import { useLeads } from '../contexts/LeadsContext';
 import { useClients } from '../contexts/ClientsContext';
 import { useInventory } from '../contexts/InventoryContext';
 import AddQuoteItemModal from '../components/quotes/AddQuoteItemModal';
-import { createQuote, createProject } from '../services/firestore';
-import { serverTimestamp } from 'firebase/firestore';
+import { projectService } from '../lib/services/projectService';
+import { useAuth } from '../contexts/AuthContext';
+import { addDocument, updateDocument } from '../services/firestore';
 
 export default function QuoteBuilder() {
     const { id } = useParams();
+    const { currentUser } = useAuth();
     const [searchParams] = useSearchParams();
     const leadId = searchParams.get('leadId');
     const { getLeadById } = useLeads();
@@ -208,14 +210,14 @@ export default function QuoteBuilder() {
                 laborCost: Number(laborCost),
                 discount: Number(discount),
                 totalValue: total,
-                status: 'Draft', // Initial status
+                status: 'Finalized',
                 systemConfig,
-                generatedBy: 'Sales Rep' // TODO: user currentUser.displayName
+                generatedBy: currentUser?.displayName || 'Sales Rep'
             };
 
-            const newQuote = await createQuote(quoteData);
+            const newQuote = await addDocument('quotes', quoteData);
 
-            // 2. Convert to Project (Auto-Creation Logic)
+            // 2. Convert to Project (Centralized Logic)
             const projectData = {
                 name: `${client.name} - Solar Install`,
                 client: client.name,
@@ -229,21 +231,33 @@ export default function QuoteBuilder() {
                 status: 'Active',
                 phase: 'Planning',
                 progress: 0,
-                health: 'good',
-                budget: total, // Set budget to quote total
-                spent: 0,
-                startDate: new Date().toISOString().split('T')[0],
-                // Estimate due date (e.g., 30 days out)
-                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                health: 'healthy',
+                budget: total,
                 description: `Project auto-generated from Quote #${newQuote.id}. System Size: ${systemConfig.dailyLoad}Wh / ${systemConfig.backupHours}h Backup`,
                 quoteId: newQuote.id,
+                leadId: leadId || client.leadId || null,
                 team: []
             };
 
-            await createProject(projectData);
+            const result = await projectService.createProjectFromX('quote', newQuote.id, projectData, currentUser);
 
-            toast.success("Quote saved & Project initialized!");
-            navigate('/sales'); // Redirect back to dashboard
+            // 3. Update Lead Stage if applicable
+            const actualLeadId = leadId || client.leadId;
+            if (actualLeadId) {
+                await updateDocument('leads', actualLeadId, {
+                    stage: 'won',
+                    wonAt: serverTimestamp(),
+                    quoteId: newQuote.id
+                });
+            }
+
+            if (result.alreadyExists) {
+                toast.success("Quote finalized (Project already exists)");
+            } else {
+                toast.success("Quote saved & Project initialized!");
+            }
+
+            navigate('/sales');
 
         } catch (error) {
             console.error("Error saving quote:", error);

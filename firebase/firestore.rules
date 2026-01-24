@@ -194,6 +194,16 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
+
+    // 19. INQUIRIES (Public Lead Capture)
+    match /inquiries/{inquiryId} {
+      // Internal users can read/manage
+      allow read: if isAdmin() || isManager() || hasRole('sales_rep');
+      // Public can create new inquiries (from website)
+      allow create: if true; 
+      // Only Admins can update/delete
+      allow update, delete: if isAdmin();
+    }
     
     // Default Deny
     match /{document=**} {

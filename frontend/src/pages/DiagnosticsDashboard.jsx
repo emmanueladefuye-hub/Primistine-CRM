@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db, auth } from '../lib/firebase';
-import { collection, query, orderBy, limit, onSnapshot, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, doc, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { useCollection } from '../hooks/useFirestore';
 import {
     Activity, ShieldAlert, Database, Terminal, AlertCircle, CheckCircle2,
     Users, FolderOpen, Trash2, RefreshCw, Settings, Zap, ToggleLeft, ToggleRight,
@@ -137,43 +138,29 @@ export default function DiagnosticsDashboard() {
         }
     }, []);
 
+    // Live Log Stream (CRM-wide hooked fix)
+    const logQuery = React.useMemo(() => [orderBy('timestamp', 'desc'), limit(100)], []);
+    const { data: rawLogs, loading: logsLoading } = useCollection(isLiveStream ? 'logs' : null, logQuery);
+
     useEffect(() => {
-        // 1. Measure Latency & Subscribe to Logs
-        const start = Date.now();
-        const logsRef = collection(db, 'logs');
-        const q = query(logsRef, orderBy('timestamp', 'desc'), limit(100));
+        if (!rawLogs) return;
+        const start = Date.now(); // We measure "processing" latency or just mock it since hook handles sync
+        setLogs(rawLogs);
+        setLogCount(rawLogs.length);
 
-        let unsubscribe = () => { };
-        if (isLiveStream) {
-            unsubscribe = onSnapshot(q, (snapshot) => {
-                const end = Date.now();
-                setStats(prev => ({
-                    ...prev,
-                    latency: `${end - start}ms`,
-                    dbConnected: true
-                }));
+        // Calculate error summary
+        const errors = rawLogs.filter(l => l.level === 'error');
+        const byType = errors.reduce((acc, err) => {
+            const type = err.errorType || err.message?.slice(0, 30) || 'Unknown';
+            acc[type] = (acc[type] || 0) + 1;
+            return acc;
+        }, {});
+        setErrorSummary({ total: errors.length, byType });
+        setLoading(false);
+        setStats(prev => ({ ...prev, latency: `Syncing...`, dbConnected: true }));
+    }, [rawLogs]);
 
-                const logData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                setLogs(logData);
-                setLogCount(logData.length);
-
-                // Calculate error summary
-                const errors = logData.filter(l => l.level === 'error');
-                const byType = errors.reduce((acc, err) => {
-                    const type = err.errorType || err.message?.slice(0, 30) || 'Unknown';
-                    acc[type] = (acc[type] || 0) + 1;
-                    return acc;
-                }, {});
-                setErrorSummary({ total: errors.length, byType });
-
-                setLoading(false);
-            }, (err) => {
-                console.error("Diagnostics: Firestore error", err);
-                setStats(prev => ({ ...prev, dbConnected: false }));
-                setLoading(false);
-            });
-        }
-
+    useEffect(() => {
         // 2. Auth Check
         const user = auth.currentUser;
         if (user) {
@@ -190,9 +177,7 @@ export default function DiagnosticsDashboard() {
         // 3. Initial Data Fetches
         fetchSupplementaryCounts();
         fetchFeatureFlags();
-
-        return () => unsubscribe();
-    }, [isLiveStream, fetchSupplementaryCounts, fetchFeatureFlags]);
+    }, [fetchSupplementaryCounts, fetchFeatureFlags]);
 
     const getLevelStyles = (level) => {
         switch (level) {

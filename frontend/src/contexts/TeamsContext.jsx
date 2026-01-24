@@ -197,10 +197,10 @@ export function TeamsProvider({ children }) {
         if (!engineers) return { available: 0, onAssignment: 0, onLeave: 0, total: 0 };
 
         return {
-            total: engineers.length,
-            available: engineers.filter(e => e.availability === 'Available' || !e.availability).length,
-            onAssignment: engineers.filter(e => e.availability === 'On Assignment').length,
-            onLeave: engineers.filter(e => e.availability === 'On Leave').length
+            total: engineers?.length || 0,
+            available: engineers?.filter(e => e.availability === 'Available' || !e.availability)?.length || 0,
+            onAssignment: engineers?.filter(e => e.availability === 'On Assignment')?.length || 0,
+            onLeave: engineers?.filter(e => e.availability === 'On Leave')?.length || 0
         };
     }, [engineers]);
 

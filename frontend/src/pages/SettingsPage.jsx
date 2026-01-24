@@ -11,6 +11,7 @@ import UserDetailModal from '../components/UserDetailModal';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
+import { useCollection } from '../hooks/useFirestore';
 import AutomationActivityLog from './AutomationActivityLog';
 
 export default function SettingsPage() {
@@ -28,8 +29,6 @@ export default function SettingsPage() {
     const [initLoading, setInitLoading] = useState(false);
 
     // User Management State
-    const [users, setUsers] = useState([]);
-    const [loadingUsers, setLoadingUsers] = useState(true);
     const [selectedUser, setSelectedUser] = useState(null); // For detail modal
 
     // Fetch business profile on mount (or when tab active)
@@ -53,23 +52,9 @@ export default function SettingsPage() {
         }
     }, [activeTab]);
 
-    // Fetch Users Real-time
-    React.useEffect(() => {
-        if (activeTab === 'users') {
-            const unsubscribe = onSnapshot(collection(db, 'users'), (snapshot) => {
-                const userList = snapshot.docs.map(doc => ({
-                    id: doc.id,
-                    ...doc.data()
-                }));
-                setUsers(userList);
-                setLoadingUsers(false);
-            }, (error) => {
-                console.error("Failed to fetch users", error);
-                setLoadingUsers(false);
-            });
-            return () => unsubscribe();
-        }
-    }, [activeTab]);
+    // Fetch Users (CRM-wide hooked fix)
+    const { data: userList, loading: loadingUsers } = useCollection('users');
+    const users = React.useMemo(() => userList || [], [userList]);
 
     const handleUserAction = async (action, user) => {
         if (action === 'toggle_status') {

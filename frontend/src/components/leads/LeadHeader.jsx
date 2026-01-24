@@ -14,12 +14,21 @@ export default function LeadHeader({ lead, stageInfo, onEdit }) {
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-3">
                         <h1 className="text-xl sm:text-3xl font-black text-premium-blue-900 truncate tracking-tighter">
-                            {lead.name} <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded ml-2">v2</span>
+                            {lead.name}
                         </h1>
                         <span className={clsx("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider", stageInfo.color)}>{stageInfo.name}</span>
+                        {lead.attribution?.source && (
+                            <span className="px-3 py-1 bg-premium-gold-500/10 text-premium-gold-600 rounded-full text-[10px] font-black uppercase tracking-widest border border-premium-gold-500/20">
+                                {lead.attribution.source}
+                            </span>
+                        )}
                     </div>
                     <p className="text-slate-500 flex items-center gap-2 mt-1.5 text-sm font-medium">
-                        <Building size={14} className="text-slate-400" /> <span className="truncate">{lead.company}</span>
+                        <Building size={14} className="text-slate-400" />
+                        <span className="truncate">{lead.company}</span>
+                        {lead.attribution?.campaign && lead.attribution.campaign !== 'none' && (
+                            <span className="text-[10px] text-slate-300 font-bold uppercase tracking-widest ml-2">• {lead.attribution.campaign}</span>
+                        )}
                     </p>
                 </div>
             </div>

@@ -1,19 +1,17 @@
-import React, { createContext, useContext, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useMemo } from 'react';
 import { db } from '../lib/firebase';
 import {
     collection, addDoc, updateDoc, deleteDoc, doc, orderBy,
-    query, where, getDocs, serverTimestamp, arrayUnion
+    query, where, getDocs, serverTimestamp, arrayUnion, limit
 } from 'firebase/firestore';
-import { limit } from 'firebase/firestore';
 import { useScopedCollection } from '../hooks/useScopedCollection';
 import { useScopedPagination } from '../hooks/useScopedPagination';
 import { toast } from 'react-hot-toast';
-// Mocks removed
 import { PIPELINE_STAGES } from '../lib/constants';
-import { useProjects } from './ProjectsContext';
-import { useClients } from './ClientsContext';
 import { useAuth } from './AuthContext';
 import { SystemLogger, LOG_ACTIONS } from '../lib/services/SystemLogger';
+import { projectService } from '../lib/services/projectService';
+import { LEAD_WORKFLOW_RULES } from '../lib/workflowRules';
 
 export const LeadsContext = createContext();
 
@@ -27,12 +25,9 @@ export function useLeads() {
 
 export function LeadsProvider({ children }) {
     const { currentUser, userProfile } = useAuth();
-    const { addProject } = useProjects();
-    const { addClient } = useClients();
 
     // 1. Limited Real-time Subscription (Top 100 for Board View)
-    // Prevents crashing the browser with 1000s of leads on initial load
-    const leadsQuery = React.useMemo(() => [orderBy('createdAt', 'desc'), limit(100)], []);
+    const leadsQuery = useMemo(() => [orderBy('createdAt', 'desc'), limit(100)], []);
     const { data: leads, loading: collectionLoading, error: collectionError } = useScopedCollection('leads', leadsQuery);
 
     // 2. Paginated Subscription (Infinite Scroll for List View)
@@ -54,17 +49,16 @@ export function LeadsProvider({ children }) {
 
             const newLead = {
                 ...leadData,
-                value: rawValue, // Store as number
+                value: rawValue,
                 lastContact: 'Just now',
                 activities: [],
                 documents: [],
-                companyId: userProfile?.companyId || 'default', // RBAC scoping
-                createdBy: currentUser?.uid || 'system',        // RBAC scoping
+                companyId: userProfile?.companyId || 'default',
+                createdBy: currentUser?.uid || 'system',
                 createdAt: new Date().toISOString(),
                 updatedBy: currentUser?.uid || 'system'
             };
 
-            // Let Firestore generate a random string ID
             const docRef = await addDoc(collection(db, 'leads'), newLead);
 
             await SystemLogger.log(LOG_ACTIONS.LEAD_CREATED, `Created new lead: ${leadData.name}`, {
@@ -74,31 +68,22 @@ export function LeadsProvider({ children }) {
                 createdBy: currentUser?.uid || 'system'
             });
 
-            // If we need the ID in the object for local state (though useCollection handles it),  
-            // we can update it if needed, but usually doc.id is better.
             toast.success('Lead added successfully');
             return docRef.id;
         } catch (err) {
             console.error('Error adding lead:', err);
             toast.error('Failed to add lead');
-            throw err; // Re-throw for component-level handling
+            throw err;
         }
     };
 
     const updateLead = async (id, updates) => {
         try {
-            // We need to find the document ref. Since we are using useCollection which gives us data + id (firestore id),
-            // and the app might be passing the numeric 'id' field.
-            // However, useCollection maps doc.id to .id. 
-            // WAIT: useCollection usually maps the document ID to the `id` field.
-            // But I am saving `id: Date.now()` in the document. This creates a duplicate ID problem.
-            // Phase 1/2 fixed this by using the Firestore ID.
-            // Let's assume the ID passed here IS the Firestore ID (string).
-            // If it's a number, it might be legacy or from the object.id. 
-            // Ideally we migrate to using Firestore IDs (strings).
-
             const docRef = doc(db, 'leads', String(id));
-            await updateDoc(docRef, updates);
+            await updateDoc(docRef, {
+                ...updates,
+                updatedAt: serverTimestamp()
+            });
 
             await SystemLogger.log(LOG_ACTIONS.LEAD_UPDATED, `Updated lead: ${id}`, {
                 leadId: id,
@@ -124,7 +109,6 @@ export function LeadsProvider({ children }) {
         }
     };
 
-    // Helper to add activity
     const addActivity = useCallback(async (leadId, type, text, user = null) => {
         const activityUser = user || (currentUser?.displayName || currentUser?.email || 'System');
         const newActivity = {
@@ -149,26 +133,24 @@ export function LeadsProvider({ children }) {
         addActivity(leadId, 'note', noteText);
     }, [addActivity]);
 
-    // Helper to create client from lead
     const createClientFromLead = useCallback(async (lead) => {
         try {
-            // 1. Check if client with this leadId exists
             const qLeadId = query(collection(db, 'clients'), where('leadId', '==', lead.id));
             const snapLeadId = await getDocs(qLeadId);
             if (!snapLeadId.empty) return;
 
-            // 2. Check if client with this email exists
             if (lead.email) {
                 const qEmail = query(collection(db, 'clients'), where('email', '==', lead.email));
                 const snapEmail = await getDocs(qEmail);
                 if (!snapEmail.empty) return;
             }
 
-            await addClient({
+            const clientsRef = collection(db, 'clients');
+            await addDoc(clientsRef, {
                 name: lead.name,
-                company: lead.company,
-                email: lead.email,
-                phone: lead.phone,
+                company: lead.company || '',
+                email: lead.email || '',
+                phone: lead.phone || '',
                 address: lead.address || 'Address pending',
                 status: 'Active',
                 source: 'Converted Lead',
@@ -177,82 +159,71 @@ export function LeadsProvider({ children }) {
                 totalProjects: 1,
                 value: lead.value || 0,
                 notes: lead.notes || '',
-                companyId: userProfile?.companyId || 'default', // RBAC scoping
-                createdBy: currentUser?.uid || 'system'         // RBAC scoping
+                companyId: userProfile?.companyId || 'default',
+                createdBy: currentUser?.uid || 'system',
+                attribution: lead.attribution || {}
             });
 
         } catch (error) {
             console.error('Error creating client from lead:', error);
         }
-    }, [addClient]);
+    }, [currentUser, userProfile]);
 
-    // Helper to create project from lead
     const createProjectFromLead = useCallback(async (lead) => {
         try {
-            const q = query(collection(db, 'projects'), where('leadId', '==', lead.id));
-            const snap = await getDocs(q);
-
-            if (!snap.empty) {
-                console.log('Project already exists for this lead');
-                return;
-            }
-
             const serviceType = lead.serviceInterest?.[0] || 'Solar';
 
-            await addProject({
-                leadId: lead.id,
+            const projectData = {
                 name: `${serviceType} for ${lead.name}`,
                 client: lead.company || lead.name,
+                clientId: lead.id,
                 clientInfo: {
                     name: lead.name,
                     address: lead.address || 'Address pending',
-                    phone: lead.phone || 'No phone provided'
+                    phone: lead.phone || 'No phone provided',
+                    email: lead.email || ''
                 },
-                status: 'In Progress',
-                phase: 'Planning',
-                progress: 0,
-                health: 'healthy',
-                startDate: new Date().toISOString().split('T')[0],
-                dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                budget: lead.value || 0,
-                value: lead.value || 0,
-                spent: 0,
                 systemSpecs: {
                     serviceType: serviceType.toLowerCase(),
-                    inverter: '-',
-                    battery: '-',
-                    solar: '-',
                     value: lead.value || 0
                 },
-                team: [],
-                tasks: { todo: [], inProgress: [], completed: [] },
-                manager: currentUser?.displayName || 'Unassigned',
                 description: `Project auto-created from won lead. Notes: ${lead.notes || 'None'}`,
-                priority: 'High',
-                createdAt: serverTimestamp(),
                 createdFrom: 'lead',
-                companyId: userProfile?.companyId || 'default', // RBAC scoping
-                createdBy: currentUser?.uid || 'system'         // RBAC scoping
-            });
+                attribution: lead.attribution || {}
+            };
 
-            await SystemLogger.log(LOG_ACTIONS.PROJECT_CREATED, `Auto-created project for lead: ${lead.name}`, {
-                leadId: lead.id,
-                serviceType,
-                value: lead.value
-            });
+            const result = await projectService.createProjectFromX('lead', lead.id, projectData, currentUser);
+
+            if (!result.alreadyExists) {
+                toast.success(`Project launched for ${lead.name}`);
+            }
 
         } catch (error) {
             console.error('Error creating project from lead:', error);
+            toast.error('Failed to auto-create project');
         }
-    }, [addProject, currentUser]);
+    }, [currentUser]);
 
-    // Move lead to a different stage
     const moveLeadStage = useCallback(async (id, newStage) => {
         if (!leads) return;
         const lead = leads.find(l => String(l.id) === String(id));
         if (!lead) return;
 
-        // Trigger conversion ONLY when moving to 'won' from a non-won stage
+        // --- Workflow Validation ---
+        const stageRules = LEAD_WORKFLOW_RULES[newStage];
+        if (stageRules) {
+            for (const rule of stageRules) {
+                // We use a temporary context for validation since some rules depend on 'hasAudit' which is now in the lead obj
+                if (!rule.condition({ ...lead, hasAudit: lead.hasAudit })) {
+                    const err = new Error(rule.message);
+                    err.code = 'WORKFLOW_VALIDATION_FAILED';
+                    err.stageId = newStage;
+                    throw err;
+                }
+            }
+        }
+        // ---------------------------
+
         if (newStage === 'won' && lead.stage !== 'won') {
             await createClientFromLead(lead);
             await createProjectFromLead(lead);
@@ -275,7 +246,7 @@ export function LeadsProvider({ children }) {
                 userId: currentUser?.uid || 'system'
             });
         }
-    }, [leads, createClientFromLead, createProjectFromLead, addActivity, updateLead]);
+    }, [leads, createClientFromLead, createProjectFromLead, addActivity, updateLead, currentUser]);
 
     const getLeadById = (id) => {
         if (!leads) return null;

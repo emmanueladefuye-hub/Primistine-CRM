@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getDatabase } from "firebase/database";
-import { getFirestore } from "firebase/firestore";
+import { initializeFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
@@ -27,7 +27,11 @@ setPersistence(auth, browserLocalPersistence)
         console.error("Auth persistence error:", error);
     });
 
-const db = getFirestore(app);
+// Initialize Firestore with robust settings (CRM-wide Fix)
+const db = initializeFirestore(app, {
+    ignoreUndefinedProperties: true,
+});
+
 const rtdb = getDatabase(app);
 const storage = getStorage(app);
 

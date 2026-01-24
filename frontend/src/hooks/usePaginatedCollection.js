@@ -19,6 +19,8 @@ export function usePaginatedCollection(collectionName, constraints = [], pageSiz
     const [hasMore, setHasMore] = useState(true);
     const lastDocRef = useRef(null);
 
+    const validConstraints = constraints.filter(c => !!c);
+
     const loadMore = useCallback(async (isInitial = false) => {
         if (loading || (!hasMore && !isInitial)) return;
 
@@ -26,7 +28,7 @@ export function usePaginatedCollection(collectionName, constraints = [], pageSiz
         try {
             let q = query(
                 collection(db, collectionName),
-                ...constraints,
+                ...validConstraints,
                 limit(pageSize)
             );
 
@@ -47,7 +49,11 @@ export function usePaginatedCollection(collectionName, constraints = [], pageSiz
             }
 
             setHasMore(items.length === pageSize);
-            lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
+            if (snapshot.docs.length > 0) {
+                lastDocRef.current = snapshot.docs[snapshot.docs.length - 1];
+            } else {
+                lastDocRef.current = null;
+            }
             setError(null);
         } catch (err) {
             console.error(`Error loading paginated ${collectionName}:`, err);
@@ -55,7 +61,7 @@ export function usePaginatedCollection(collectionName, constraints = [], pageSiz
         } finally {
             setLoading(false);
         }
-    }, [collectionName, JSON.stringify(constraints), pageSize]);
+    }, [collectionName, JSON.stringify(validConstraints), pageSize]);
 
     return { data, loading, error, hasMore, loadMore };
 }

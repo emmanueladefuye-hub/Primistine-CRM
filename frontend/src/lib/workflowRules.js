@@ -6,12 +6,18 @@ import { auditService } from './services/auditService';
  * Rules are evaluated by 'useWorkflowEngine'.
  */
 export const LEAD_WORKFLOW_RULES = {
-    // Rules to move TO 'audit' stage (usually allowed, but maybe we want to check for contact info)
+    // Rules to move TO 'audit' stage (Strict: Must have Audit)
     'audit': [
         {
             field: 'contact_info',
-            message: 'Lead must have a phone number or email before scheduling an audit.',
+            message: 'Lead must have a phone number or email.',
             condition: (lead) => !!lead.phone || !!lead.email
+        },
+        {
+            id: 'audit_required',
+            field: 'audit',
+            message: 'Audit Required! Move to this stage only after a site audit is completed.',
+            condition: (lead) => !!lead.hasAudit
         }
     ],
 
@@ -20,16 +26,8 @@ export const LEAD_WORKFLOW_RULES = {
         {
             id: 'audit_required',
             field: 'audit',
-            message: 'Audit Required! Please complete a Site Audit before creating a proposal.',
-            // Async check support would be ideal, but for now we assume data is loaded or check synchronous flags
-            // In LeadDetailPage_v2, we check duplicate audits.
-            // For now, simpler condition:
-            condition: (lead) => {
-                // Check if we have an audit flag or we just count on the Async check in the component?
-                // Ideally, the rule engine should handle async, but our simple hook is sync.
-                // We will rely on data.hasAudit being populated by the component for now.
-                return !!lead.hasAudit;
-            }
+            message: 'Cannot send proposal without a confirmed site audit.',
+            condition: (lead) => !!lead.hasAudit
         }
     ],
 
@@ -37,8 +35,8 @@ export const LEAD_WORKFLOW_RULES = {
     'won': [
         {
             field: 'proposal',
-            message: 'Cannot close as Won without a Proposal',
-            condition: (lead) => !!lead.proposalId || !!lead.value // simplistic check
+            message: 'Cannot close as Won without a Finalized Proposal (Quote)',
+            condition: (lead) => !!lead.quoteId || !!lead.proposalId
         }
     ]
 };

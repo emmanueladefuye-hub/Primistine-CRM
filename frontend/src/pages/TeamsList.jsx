@@ -70,7 +70,7 @@ const EngineerCard = ({ member, onViewProfile, onDeploy, canWrite, onDelete }) =
                             {skill}
                         </span>
                     ))}
-                    {member.skills.length > 3 && (
+                    {member.skills?.length > 3 && (
                         <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-500">
                             +{member.skills.length - 3}
                         </span>
@@ -328,7 +328,7 @@ export default function TeamsList() {
                 </select>
 
                 {/* Skill Filter */}
-                {allSkills.length > 0 && (
+                {allSkills?.length > 0 && (
                     <select
                         value={skillFilter}
                         onChange={(e) => setSkillFilter(e.target.value)}
@@ -347,7 +347,7 @@ export default function TeamsList() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     <Skeleton className="h-64 rounded-2xl" count={8} />
                 </div>
-            ) : filteredMembers.length === 0 ? (
+            ) : (!filteredMembers || filteredMembers.length === 0) ? (
                 <div className="flex flex-col items-center justify-center h-64 bg-white rounded-2xl border border-slate-200 text-slate-400">
                     <Users size={48} className="mb-4 opacity-30" />
                     <p className="font-medium">No team members found.</p>

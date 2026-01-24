@@ -168,7 +168,33 @@ export default function LeadDetailPage_v2() {
             // VALIDATION CHECK
             const isValid = validateStep(nextStage.id);
             if (!isValid) {
-                toast.error("Cannot move stage: Requirements not met (e.g., Audit or Proposal).");
+                if (nextStage.id === 'audit' || nextStage.id === 'proposal') {
+                    toast.error((t) => (
+                        <div className="flex flex-col gap-3">
+                            <p className="font-bold text-sm">Prerequisite Missing: Site Audit Required</p>
+                            <p className="text-xs opacity-80">You must complete a site audit for this lead before moving to {nextStage.name}.</p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        toast.dismiss(t.id);
+                                        navigate('/audits/new');
+                                    }}
+                                    className="px-3 py-1.5 bg-premium-blue-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    Run Audit Now
+                                </button>
+                                <button
+                                    onClick={() => toast.dismiss(t.id)}
+                                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </div>
+                    ), { duration: 6000 });
+                } else {
+                    toast.error(`Cannot move to ${nextStage.name}: Requirements not met.`);
+                }
                 return;
             }
 

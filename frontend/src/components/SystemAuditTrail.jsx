@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
+import { orderBy, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { useCollection } from '../hooks/useFirestore';
 import { Loader2, ShieldAlert, Clock, User, FileText } from 'lucide-react';
 
 export default function SystemAuditTrail() {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-
     const timeAgo = (date) => {
         const seconds = Math.floor((new Date() - date) / 1000);
         let interval = seconds / 31536000;
@@ -22,27 +20,9 @@ export default function SystemAuditTrail() {
         return "Just now";
     };
 
-    useEffect(() => {
-        const q = query(
-            collection(db, 'logs'),
-            orderBy('timestamp', 'desc'),
-            limit(50)
-        );
-
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const newLogs = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setLogs(newLogs);
-            setLoading(false);
-        }, (error) => {
-            console.error("Failed to fetch logs:", error);
-            setLoading(false);
-        });
-
-        return () => unsubscribe();
-    }, []);
+    // Fetch Logs (CRM-wide hooked fix)
+    const logQuery = React.useMemo(() => [orderBy('timestamp', 'desc'), limit(50)], []);
+    const { data: logs, loading } = useCollection('logs', logQuery);
 
     if (loading) {
         return (
