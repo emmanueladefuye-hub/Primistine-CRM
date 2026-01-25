@@ -6,13 +6,13 @@ import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAme8Gn_2HXfAT14vTSfX4WcU_N-lIzUNs",
-    authDomain: "primistine-electric-crm.firebaseapp.com",
-    projectId: "primistine-electric-crm",
-    storageBucket: "primistine-electric-crm.firebasestorage.app",
-    messagingSenderId: "312402796800",
-    appId: "1:312402796800:web:ed8c51ec8ebb9dec2c93e5",
-    measurementId: "G-26R1SLVG8W"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
@@ -51,7 +51,7 @@ export const requestForToken = async () => {
     if (!messaging) return null;
     try {
         const currentToken = await getToken(messaging, {
-            vapidKey: 'BDFBy4MerQ6vLptv8E6R8nVGed2L2l0a-bWEWRnt-aHJooV55JC_3DoDOp8WndAlXqCihJY0Lh4qGXUQMCBvr40'
+            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY
         });
         if (currentToken) {
             console.log('FCM Token:', currentToken);
