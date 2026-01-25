@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, FileText, Briefcase, ShoppingCart, DollarSign, BarChart3, Settings, HelpCircle, MessageSquare, Calendar, AlertCircle, Activity, Globe } from "lucide-react";
+import { LayoutDashboard, Users, FileText, Briefcase, ShoppingCart, DollarSign, BarChart3, Settings, HelpCircle, MessageSquare, Calendar, AlertCircle, Activity, Globe, Zap } from "lucide-react";
 
 export const NAV_LINKS = [
     {
@@ -42,6 +42,13 @@ export const NAV_LINKS = [
         items: [
             { name: "Financial Overview", icon: DollarSign, path: "/finance", permission: { resource: 'financials', action: 'view' } },
             { name: "Communications", icon: MessageSquare, path: "/inbox", permission: { resource: 'leads', action: 'view' } },
+        ]
+    },
+    {
+        category: "AI & Automation",
+        items: [
+            { name: "AI Workflows", icon: Zap, path: "/ai-workflows", permission: { resource: 'system', action: 'manage' } },
+            { name: "Automation Logs", icon: Activity, path: "/logs", permission: { resource: 'system', action: 'manage' } },
         ]
     },
     {

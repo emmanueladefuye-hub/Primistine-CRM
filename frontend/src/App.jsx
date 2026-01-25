@@ -21,6 +21,8 @@ import FinanceDashboard from './pages/FinanceDashboard';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import AcquisitionDashboard from './pages/AcquisitionDashboard';
 import SourceInquiriesPage from './pages/SourceInquiriesPage';
+import AIWorkflowsPage from './pages/AIWorkflowsPage';
+import AutomationActivityLog from './pages/AutomationActivityLog';
 import PublicInquiryPage from './pages/PublicInquiryPage';
 import AuditWizard from './pages/AuditWizard';
 import AuditWizard_v2 from './pages/AuditWizard_v2';
@@ -111,8 +113,9 @@ function App() {
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/support" element={<SupportPage />} />
 
-            {/* Diagnostics - Super Admin Only */}
             <Route element={<ProtectedRoute requiredPermission={{ resource: 'system', action: 'manage' }} />}>
+              <Route path="/ai-workflows" element={<AIWorkflowsPage />} />
+              <Route path="/logs" element={<AutomationActivityLog />} />
               <Route path="/admin/diagnostics" element={<DiagnosticsDashboard />} />
             </Route>
           </Route>
