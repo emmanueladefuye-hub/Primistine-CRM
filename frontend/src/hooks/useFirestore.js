@@ -29,6 +29,11 @@ export function useCollection(collectionName, _constraints = []) {
     const queryKey = JSON.stringify(validConstraints);
 
     useEffect(() => {
+        if (!collectionName) {
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         let q = collection(db, collectionName);
 

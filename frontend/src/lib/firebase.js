@@ -6,7 +6,7 @@ import { getStorage } from "firebase/storage";
 import { getMessaging, getToken, onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyA00JTJ733VGW69zZVMp4zyxylNEG2-wJQ",
+    apiKey: "AIzaSyAme8Gn_2HXfAT14vTSfX4WcU_N-lIzUNs",
     authDomain: "primistine-electric-crm.firebaseapp.com",
     projectId: "primistine-electric-crm",
     storageBucket: "primistine-electric-crm.firebasestorage.app",
