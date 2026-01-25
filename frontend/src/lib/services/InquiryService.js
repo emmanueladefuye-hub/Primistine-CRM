@@ -173,5 +173,25 @@ export const InquiryService = {
             console.error("Error fetching acquisition metrics:", error);
             return { totalInquiries: 0, conversions: 0, roi: 0, rate: 0 };
         }
+    },
+
+    /**
+     * Delete a single inquiry by ID
+     */
+    deleteInquiry: async (inquiryId) => {
+        try {
+            const { deleteDoc } = await import('firebase/firestore');
+            const inquiryRef = doc(db, 'inquiries', inquiryId);
+            await deleteDoc(inquiryRef);
+
+            await SystemLogger.log(LOG_ACTIONS.SYSTEM_ACTION, `Deleted inquiry: ${inquiryId}`, {
+                inquiryId
+            });
+
+            return true;
+        } catch (error) {
+            console.error("Error deleting inquiry:", error);
+            throw error;
+        }
     }
 };

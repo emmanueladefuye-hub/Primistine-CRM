@@ -45,7 +45,7 @@ const StatCard = ({ title, value, change, icon: Icon, color }) => (
     </div>
 );
 
-const SourcePerformanceTable = ({ sources }) => (
+const SourcePerformanceTable = ({ sources, onSourceClick }) => (
     <div className="bg-white rounded-[32px] border border-slate-100 shadow-sm overflow-hidden flex flex-col h-full">
         <div className="p-8 border-b border-slate-50 flex items-center justify-between">
             <div>
@@ -67,25 +67,29 @@ const SourcePerformanceTable = ({ sources }) => (
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                     {sources.map((source, idx) => (
-                        <tr key={idx} className="group hover:bg-slate-50/50 transition-colors">
+                        <tr
+                            key={idx}
+                            className="group hover:bg-premium-blue-50/50 transition-colors cursor-pointer"
+                            onClick={() => onSourceClick(source.key)}
+                        >
                             <td className="py-4 px-8 flex items-center gap-3">
                                 <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center", source.color)}>
                                     <source.icon size={16} className="text-white" />
                                 </div>
-                                <span className="font-bold text-premium-blue-900">{source.name}</span>
+                                <span className="font-bold text-premium-blue-900 group-hover:text-premium-blue-600 transition-colors">{source.name}</span>
                             </td>
                             <td className="py-4 px-6 font-black text-slate-600">{source.count}</td>
                             <td className="py-4 px-6 font-black text-premium-blue-900">{source.conversions}</td>
                             <td className="py-4 px-6">
                                 <span className="px-2 py-1 rounded-full bg-slate-100 text-[10px] font-black text-slate-600">
-                                    {((source.conversions / source.count) * 100).toFixed(1)}%
+                                    {source.count > 0 ? ((source.conversions / source.count) * 100).toFixed(1) : 0}%
                                 </span>
                             </td>
                             <td className="py-4 px-8 text-right">
                                 <div className="h-1 w-16 bg-slate-100 rounded-full overflow-hidden ml-auto">
                                     <div
                                         className={clsx("h-full", source.color.replace('bg-', 'bg-'))}
-                                        style={{ width: `${(source.conversions / source.count) * 100}%` }}
+                                        style={{ width: `${source.count > 0 ? (source.conversions / source.count) * 100 : 0}%` }}
                                     ></div>
                                 </div>
                             </td>
@@ -185,10 +189,10 @@ export default function AcquisitionDashboard() {
     const sources = React.useMemo(() => {
         // Source Config for branding
         const config = {
-            'Meta Ads': { icon: Facebook, color: 'bg-blue-600', match: ['meta', 'facebook', 'instagram'] },
-            'Google Ads': { icon: Search, color: 'bg-red-500', match: ['google', 'cpc', 'adwords'] },
-            'Website': { icon: Globe, color: 'bg-emerald-500', match: ['website', 'direct', 'organic'] },
-            'Referral': { icon: Users, color: 'bg-premium-gold-500', match: ['referral', 'friend'] }
+            'Meta Ads': { key: 'meta', icon: Facebook, color: 'bg-blue-600', match: ['meta', 'facebook', 'instagram'] },
+            'Google Ads': { key: 'google', icon: Search, color: 'bg-red-500', match: ['google', 'cpc', 'adwords'] },
+            'Website': { key: 'website', icon: Globe, color: 'bg-emerald-500', match: ['website', 'direct', 'organic'] },
+            'Referral': { key: 'referral', icon: Users, color: 'bg-premium-gold-500', match: ['referral', 'friend'] }
         };
 
         const stats = {
@@ -258,7 +262,10 @@ export default function AcquisitionDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Performance Table */}
                 <div className="lg:col-span-2">
-                    <SourcePerformanceTable sources={sources} />
+                    <SourcePerformanceTable
+                        sources={sources}
+                        onSourceClick={(key) => navigate(`/acquisition/source/${key}`)}
+                    />
                 </div>
 
                 {/* Recent Activity */}

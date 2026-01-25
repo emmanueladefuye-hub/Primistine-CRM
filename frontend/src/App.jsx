@@ -20,6 +20,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import FinanceDashboard from './pages/FinanceDashboard';
 import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import AcquisitionDashboard from './pages/AcquisitionDashboard';
+import SourceInquiriesPage from './pages/SourceInquiriesPage';
 import PublicInquiryPage from './pages/PublicInquiryPage';
 import AuditWizard from './pages/AuditWizard';
 import AuditWizard_v2 from './pages/AuditWizard_v2';
@@ -69,6 +70,7 @@ function App() {
             {/* Pipeline - Restricted to Sales/Admin/Manager */}
             <Route element={<ProtectedRoute requiredPermission={{ resource: 'leads', action: 'view' }} />}>
               <Route path="/acquisition" element={<AcquisitionDashboard />} />
+              <Route path="/acquisition/source/:sourceType" element={<SourceInquiriesPage />} />
               <Route path="/sales" element={<SalesDashboard />} />
               <Route path="/sales/leads/:id" element={<LeadDetailPage_v2 />} />
               <Route path="/sales/quotes/new" element={<QuoteBuilder />} />
