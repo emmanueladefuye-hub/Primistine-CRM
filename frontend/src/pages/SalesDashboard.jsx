@@ -241,7 +241,6 @@ const LeadCard = React.memo(({ lead, index, onContact }) => {
 
                     <div className="flex flex-wrap items-center gap-2 mb-4">
                         <div className="flex items-center gap-1.5 text-sm font-black text-premium-gold-600">
-                            <TrendingUp size={14} strokeWidth={3} className="opacity-70" />
                             ₦{Number(lead.value || 0).toLocaleString()}
                         </div>
                         {isStale && (

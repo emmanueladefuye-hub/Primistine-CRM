@@ -8,7 +8,7 @@ import primistineLogo from '../assets/primistine-logo.png';
 import { PremiumButton } from './ui';
 
 export default function Sidebar({ isOpen, onClose }) {
-    const { currentUser, logout, hasPermission } = useAuth();
+    const { currentUser, userProfile, logout, hasPermission, hasRole } = useAuth();
     const [isCollapsed, setIsCollapsed] = useState(false);
     const scrollContainerRef = useRef(null);
     const scrollIntervalRef = useRef(null);
@@ -97,11 +97,13 @@ export default function Sidebar({ isOpen, onClose }) {
 
                     {NAV_LINKS.map((group, idx) => {
                         // Filter items based on permissions
-                        const visibleItems = group.items.filter(item =>
-                            !item.permission ||
-                            (currentUser.role === 'super_admin') ||
-                            hasPermission(item.permission.resource, item.permission.action)
-                        );
+                        const visibleItems = group.items.filter(item => {
+                            if (item.adminOnly && !hasRole(['super_admin', 'admin'])) return false;
+
+                            return !item.permission ||
+                                hasRole('super_admin') ||
+                                hasPermission(item.permission.resource, item.permission.action);
+                        });
 
                         if (visibleItems.length === 0) return null;
 
@@ -166,9 +168,6 @@ export default function Sidebar({ isOpen, onClose }) {
 
                         {!isCollapsed && (
                             <div className="flex items-center gap-2">
-                                <div className="hidden xl:flex items-center gap-1 px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-[10px] text-slate-400 font-bold uppercase pointer-events-none">
-                                    <span className="text-[8px]">⌘</span> K
-                                </div>
                                 <PremiumButton
                                     variant="ghost"
                                     size="sm"

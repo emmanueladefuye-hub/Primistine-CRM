@@ -10,8 +10,8 @@ export const NAV_LINKS = [
     {
         category: "Lead Acquisition",
         items: [
-            { name: "Acquisition DB", icon: Activity, path: "/acquisition", permission: { resource: 'leads', action: 'view' } },
-            { name: "Landing Page", icon: Globe, path: "/inquiry" },
+            { name: "Acquisition DB", icon: Activity, path: "/acquisition", permission: { resource: 'leads', action: 'view' }, adminOnly: true },
+            { name: "Landing Page", icon: Globe, path: "/inquiry", adminOnly: true },
         ]
     },
     {

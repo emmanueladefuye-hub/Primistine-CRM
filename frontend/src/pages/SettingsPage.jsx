@@ -191,9 +191,11 @@ export default function SettingsPage() {
                             <Building size={18} /> Business Profile
                         </button>
                     )}
-                    <button onClick={() => setActiveTab('users')} className={clsx("w-full flex items-center gap-3 px-4 py-3 font-medium rounded-lg transition-all", activeTab === 'users' ? "bg-white text-premium-blue-900 shadow-sm border border-slate-200" : "text-slate-600 hover:bg-white/50")}>
-                        <Shield size={18} /> User Management
-                    </button>
+                    {hasRole(['super_admin', 'admin']) && (
+                        <button onClick={() => setActiveTab('users')} className={clsx("w-full flex items-center gap-3 px-4 py-3 font-medium rounded-lg transition-all", activeTab === 'users' ? "bg-white text-premium-blue-900 shadow-sm border border-slate-200" : "text-slate-600 hover:bg-white/50")}>
+                            <Shield size={18} /> User Management
+                        </button>
+                    )}
                     {hasRole(['super_admin', 'admin']) && (
                         <>
                             <button onClick={() => setActiveTab('system')} className={clsx("w-full flex items-center gap-3 px-4 py-3 font-medium rounded-lg transition-all", activeTab === 'system' ? "bg-white text-premium-blue-900 shadow-sm border border-slate-200" : "text-slate-600 hover:bg-white/50")}>
@@ -432,7 +434,7 @@ export default function SettingsPage() {
                     )}
 
                     {/* Tab: User Management */}
-                    {activeTab === 'users' && (
+                    {activeTab === 'users' && hasRole(['super_admin', 'admin']) && (
                         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm relative">
                             <div className="flex justify-between items-center mb-6">
                                 <div>
