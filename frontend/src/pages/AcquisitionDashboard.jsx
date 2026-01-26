@@ -16,6 +16,7 @@ import {
     Eye,
     X,
     Calendar,
+    Phone,
     MessageSquare,
     MessageCircle,
     ClipboardList,
@@ -25,6 +26,7 @@ import clsx from 'clsx';
 import { InquiryService } from '../lib/services/InquiryService';
 import { toast } from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const StatCard = ({ title, value, change, icon: Icon, color }) => (
     <div className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:shadow-slate-200/50 transition-all group">
@@ -103,6 +105,7 @@ const SourcePerformanceTable = ({ sources, onSourceClick }) => (
 
 export default function AcquisitionDashboard() {
     const navigate = useNavigate();
+    const { currentUser, userProfile } = useAuth();
     const [isUTMModalOpen, setIsUTMModalOpen] = useState(false);
     const [utmConfig, setUtmConfig] = useState({ source: '', medium: '', campaign: '' });
 
@@ -138,7 +141,7 @@ export default function AcquisitionDashboard() {
     const handlePromote = async (inquiry) => {
         try {
             const loadingToast = toast.loading("Promoting to lead...");
-            const leadId = await InquiryService.promoteToLead(inquiry.id, inquiry);
+            const leadId = await InquiryService.promoteToLead(inquiry.id, inquiry, userProfile, currentUser);
             toast.success("Inquiry Promoted! Check Sales Pipeline.", { id: loadingToast });
         } catch (error) {
             toast.error("Failed to promote inquiry");
@@ -363,7 +366,9 @@ export default function AcquisitionDashboard() {
                                                 <Phone size={14} />
                                                 <span className="text-[10px] font-black uppercase tracking-widest">Direct Line</span>
                                             </div>
-                                            <p className="font-bold text-premium-blue-900">{selectedInquiry.phone || 'Not Provided'}</p>
+                                            <p className="font-bold text-premium-blue-900">
+                                                {selectedInquiry.phone || selectedInquiry.phoneNumber || selectedInquiry.direct_line || selectedInquiry.tel || 'Not Provided'}
+                                            </p>
                                         </div>
                                         <div className="p-4 bg-slate-50 rounded-2xl">
                                             <div className="flex items-center gap-2 text-slate-400 mb-2">
@@ -384,7 +389,7 @@ export default function AcquisitionDashboard() {
                                             <MapPin size={14} />
                                             <span className="text-[10px] font-black uppercase tracking-widest">Deployment Location</span>
                                         </div>
-                                        <p className="font-bold text-premium-blue-900">{selectedInquiry.location || 'Not Specified'}</p>
+                                        <p className="font-bold text-premium-blue-900">{selectedInquiry.location || selectedInquiry.deploymentLocation || 'Not Specified'}</p>
                                     </div>
 
                                     <div className="p-4 bg-slate-50 rounded-2xl">
@@ -393,7 +398,7 @@ export default function AcquisitionDashboard() {
                                             <span className="text-[10px] font-black uppercase tracking-widest">Project Type / Service Interest</span>
                                         </div>
                                         <p className="font-bold text-premium-blue-900">
-                                            {Array.isArray(selectedInquiry.serviceInterest)
+                                            {Array.isArray(selectedInquiry.serviceInterest) && selectedInquiry.serviceInterest.length > 0
                                                 ? selectedInquiry.serviceInterest.join(', ')
                                                 : selectedInquiry.projectType || 'General Inquiry'}
                                         </p>

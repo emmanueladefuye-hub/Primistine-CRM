@@ -18,7 +18,7 @@ export default function LeadInfoCard({ lead }) {
                     <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-premium-blue-50 group-hover:text-premium-blue-600 transition-all"><Phone size={18} /></div>
                     <div className="min-w-0">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Direct Line</p>
-                        <p className="text-sm font-black text-premium-blue-900 truncate">{lead.phone}</p>
+                        <p className="text-sm font-black text-premium-blue-900 truncate">{lead.phone || lead.phoneNumber || lead.direct_line || 'Restricted'}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4 group">

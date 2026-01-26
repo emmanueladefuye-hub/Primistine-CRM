@@ -21,8 +21,15 @@ export const InquiryService = {
     trackInquiry: async (inquiryData) => {
         try {
             const inquiriesRef = collection(db, 'inquiries');
+
+            // Normalize field names (handles variations from different forms)
+            const normalizedPhone = inquiryData.phone || inquiryData.phoneNumber || inquiryData.direct_line || inquiryData.tel || '';
+            const normalizedName = inquiryData.name || inquiryData.fullName || inquiryData.customerName || '';
+
             const newInquiry = {
                 ...inquiryData,
+                name: normalizedName,
+                phone: normalizedPhone,
                 status: 'raw',
                 timestamp: serverTimestamp(),
                 attribution: {
@@ -90,41 +97,69 @@ export const InquiryService = {
     /**
      * Convert an inquiry to a formal Lead
      */
-    promoteToLead: async (inquiryId, leadData, creatorUid = 'system') => {
+    promoteToLead: async (inquiryId, leadData, userProfile, currentUser) => {
         try {
             const inquiryRef = doc(db, 'inquiries', inquiryId);
             const leadsRef = collection(db, 'leads');
 
-            // 1. Create the lead with attribution preserved
+            // 1. Data Transformation Rules (Intelligent Mapping to 6 Core Types)
+            const SERVICE_MAP = {
+                'Solar & Inverter': 'solar',
+                'CCTV & Security': 'cctv',
+                'Electrical Wiring': 'wiring',
+                'Generator / ATS': 'generator',
+                'Earthing & Surge': 'earthing',
+                'Industrial Safety': 'industrial',
+                // Keep old ones for backward compatibility during transition
+                'Solar Installation & Renewable Energy': 'solar',
+                'House Wiring and Electrical Installations': 'wiring',
+                'Industrial Electrical Installations': 'industrial',
+                'CCTV Installation and Surveillance Systems': 'cctv',
+                'Generator Changeover and Power Integration': 'generator',
+                'Earthing and Surge Protection Systems': 'earthing',
+                'Electrical Maintenance, Audits, and Fault Troubleshooting': 'industrial'
+            };
+
+            const rawInterest = Array.isArray(leadData.serviceInterest)
+                ? leadData.serviceInterest[0]
+                : (leadData.projectType || 'General Inquiry');
+
+            const mappedServiceId = SERVICE_MAP[rawInterest] || 'solar'; // Default to solar if Unknown
+
             const cleanLeadData = {
-                name: leadData.name,
+                name: leadData.name || 'Anonymous Inquiry',
                 email: leadData.email || '',
                 phone: leadData.phone || '',
-                address: leadData.address || '',
+                address: leadData.location || leadData.address || '',
                 company: leadData.company || '',
-                serviceInterest: leadData.serviceInterest || [],
+                serviceInterest: [mappedServiceId], // Store as the mapped ID array
+                originalProjectType: rawInterest, // Keep original for reference
                 value: 0,
-                stage: 'new',
+                stage: 'new', // Always move to 'new' lead stage
                 source: leadData.attribution?.source || 'Marketing Inquiry',
                 attribution: leadData.attribution || {},
                 convertedFromInquiry: inquiryId,
+                companyId: userProfile?.companyId || 'default',
+                createdBy: currentUser?.uid || 'system',
+                createdByName: userProfile?.displayName || currentUser?.email?.split('@')[0] || 'System',
                 createdAt: serverTimestamp(),
-                createdBy: creatorUid
+                updatedAt: serverTimestamp()
             };
 
             const docRef = await addDoc(leadsRef, cleanLeadData);
 
-            // 2. Update inquiry status
+            // 2. Update inquiry status to 'promoted'
             await updateDoc(inquiryRef, {
                 status: 'promoted',
                 leadId: docRef.id,
+                promotedBy: currentUser?.uid || 'system',
                 convertedAt: serverTimestamp()
             });
 
-            await SystemLogger.log(LOG_ACTIONS.LEAD_CREATED, `Promoted inquiry to lead: ${leadData.name}`, {
+            await SystemLogger.log(LOG_ACTIONS.LEAD_CREATED, `Promoted inquiry to lead: ${cleanLeadData.name}`, {
                 inquiryId,
                 leadId: docRef.id,
-                source: cleanLeadData.source
+                promotedBy: currentUser?.uid
             });
 
             return docRef.id;

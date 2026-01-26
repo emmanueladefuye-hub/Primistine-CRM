@@ -9,7 +9,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { differenceInDays, formatDistanceToNow } from 'date-fns';
 import ContactInteractionModal from '../components/ContactInteractionModal';
 
-import { PIPELINE_STAGES, filterByRange, ensureDate } from '../lib/constants';
+import { PIPELINE_STAGES, SERVICE_TYPES, filterByRange, ensureDate } from '../lib/constants';
 import TimeFilter from '../components/TimeFilter';
 import { useScopedCollection } from '../hooks/useScopedCollection';
 import { useLeads } from '../contexts/LeadsContext';
@@ -204,70 +204,84 @@ const LeadCard = React.memo(({ lead, index, onContact }) => {
                         snapshot.isDragging ? "shadow-2xl ring-2 ring-premium-blue-500/20 rotate-1 scale-[1.02] bg-white/90" : "border-white/20 hover:shadow-xl hover:shadow-premium-blue-900/10"
                     )}
                 >
-                    <div className="flex justify-between items-start mb-3">
-                        <div className="flex flex-col gap-1">
+                    <div className="flex justify-between items-start mb-2">
+                        <div className="flex flex-col gap-1.5 min-w-0 flex-1 mr-2">
                             <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-slate-50 text-slate-400 border border-slate-100 uppercase tracking-widest truncate max-w-[100px]" title={lead.company}>
-                                    {lead.company}
+                                <span className="text-[9px] font-black px-2 py-0.5 rounded-lg bg-slate-50 text-slate-500 border border-slate-100 uppercase tracking-widest truncate max-w-[120px]" title={lead.company}>
+                                    {lead.company || 'Direct'}
                                 </span>
                                 {lead.attribution?.source && (
-                                    <span className="text-[8px] font-black text-premium-gold-600 uppercase tracking-tighter bg-premium-gold-50 px-1.5 py-0.5 rounded">
+                                    <span className="text-[9px] font-black text-premium-gold-600 uppercase tracking-widest bg-premium-gold-50/50 px-2 py-0.5 rounded-lg border border-premium-gold-100/50">
                                         {lead.attribution.source}
                                     </span>
                                 )}
                             </div>
-                            {isStale && (
-                                <span className="flex items-center gap-1 text-[8px] font-black text-amber-600 uppercase tracking-tighter animate-pulse">
-                                    <Clock size={8} /> {daysInStage}d Stale
-                                </span>
-                            )}
+                            <Link to={`/sales/leads/${lead.id}`} className="block">
+                                <h4 className="font-extrabold text-premium-blue-900 group-hover:text-premium-blue-700 transition-colors tracking-tight leading-[1.2] text-base break-words" title={lead.name}>
+                                    {lead.name}
+                                </h4>
+                            </Link>
                         </div>
-                        <div className="relative">
+                        <div className="relative shrink-0">
                             <button
                                 ref={buttonRef}
                                 className={clsx("text-slate-400 hover:text-premium-blue-900 p-1.5 rounded-xl transition-all",
-                                    showMenu ? "bg-slate-100 text-premium-blue-900" : "hover:bg-slate-50")}
+                                    showMenu ? "bg-white shadow-sm ring-1 ring-slate-100 text-premium-blue-900" : "hover:bg-slate-50")}
                                 onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
                                     setShowMenu(!showMenu);
                                 }}
                             >
-                                <MoreHorizontal size={16} />
+                                <MoreHorizontal size={18} />
                             </button>
                             {showMenu && <LeadActionMenu lead={lead} onClose={() => setShowMenu(false)} anchorEl={buttonRef.current} />}
                         </div>
                     </div>
 
-                    <Link to={`/sales/leads/${lead.id}`} className="block">
-                        <h4 className="font-extrabold text-premium-blue-900 group-hover:text-premium-blue-700 transition-colors tracking-tight leading-tight truncate" title={lead.name}>{lead.name}</h4>
-                        <div className="flex items-center gap-1.5 text-sm font-black text-premium-gold-600 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mb-4">
+                        <div className="flex items-center gap-1.5 text-sm font-black text-premium-gold-600">
+                            <TrendingUp size={14} strokeWidth={3} className="opacity-70" />
                             ₦{Number(lead.value || 0).toLocaleString()}
                         </div>
-                    </Link>
+                        {isStale && (
+                            <span className="flex items-center gap-1 text-[9px] font-black text-rose-500 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-100 uppercase tracking-widest">
+                                <Clock size={10} strokeWidth={3} /> {daysInStage}d Stale
+                            </span>
+                        )}
+                    </div>
 
-                    <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50/50">
-                        <div className="flex gap-1.5">
-                            <button
-                                onClick={() => onContact(lead, 'phone')}
-                                className="p-2 rounded-xl bg-slate-50/50 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-100"
-                            >
-                                <Phone size={12} />
-                            </button>
-                            <button
-                                onClick={() => onContact(lead, 'email')}
-                                className="p-2 rounded-xl bg-slate-50/50 text-slate-400 hover:bg-blue-50 hover:text-blue-600 transition-all border border-transparent hover:border-blue-100"
-                            >
-                                <Mail size={12} />
-                            </button>
-                        </div>
-                        <div className="flex flex-col items-end">
-                            <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-black uppercase tracking-widest">
-                                <Calendar size={10} className="opacity-50" />
-                                {timeAgo}
+                    <div className="flex flex-col mt-auto pt-4 border-t border-slate-50 gap-3">
+                        {lead.serviceInterest?.[0] && (
+                            <div className="flex flex-wrap">
+                                <span className="text-[9px] font-black px-2.5 py-1.5 rounded-lg bg-premium-blue-900 text-white uppercase tracking-widest leading-none border border-premium-blue-800 shadow-sm">
+                                    {SERVICE_TYPES.find(s => s.id === lead.serviceInterest[0])?.name || lead.serviceInterest[0]}
+                                </span>
                             </div>
-                            <div className="text-[9px] font-bold text-slate-300 mt-0.5">
-                                by {lead.createdByName || 'System'}
+                        )}
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex gap-1.5">
+                                <button
+                                    onClick={() => onContact(lead, 'phone')}
+                                    className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:bg-emerald-500 hover:text-white transition-all shadow-sm active:scale-90"
+                                >
+                                    <Phone size={12} strokeWidth={3} />
+                                </button>
+                                <button
+                                    onClick={() => onContact(lead, 'email')}
+                                    className="p-2 rounded-xl bg-slate-50 text-slate-500 hover:bg-premium-blue-900 hover:text-white transition-all shadow-sm active:scale-90"
+                                >
+                                    <Mail size={12} strokeWidth={3} />
+                                </button>
+                            </div>
+                            <div className="flex flex-col items-end shrink-0">
+                                <div className="flex items-center gap-1 text-slate-400 text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
+                                    <Clock size={9} className="opacity-50" />
+                                    {timeAgo}
+                                </div>
+                                <div className="text-[8px] font-bold text-slate-300 pointer-events-none" title={lead.createdByName}>
+                                    by {lead.createdByName?.split(' ')[0] || 'System'}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -304,10 +318,10 @@ export default function SalesDashboard() {
             if (!searchTerm) return true;
             const lowerTerm = searchTerm.toLowerCase();
             return (
-                (lead.name || '').toLowerCase().includes(lowerTerm) ||
-                (lead.company || '').toLowerCase().includes(lowerTerm) ||
-                (lead.email || '').toLowerCase().includes(lowerTerm) ||
-                (lead.phone || '').includes(lowerTerm)
+                String(lead.name || '').toLowerCase().includes(lowerTerm) ||
+                String(lead.company || '').toLowerCase().includes(lowerTerm) ||
+                String(lead.email || '').toLowerCase().includes(lowerTerm) ||
+                String(lead.phone || '').includes(lowerTerm)
             );
         });
     }, [leads, timeRange, referenceDate, searchTerm]);

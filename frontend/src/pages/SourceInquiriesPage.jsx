@@ -89,7 +89,7 @@ const InquiryCard = ({ inquiry, isSelected, onToggleSelect, onPromote }) => {
                                 <Phone size={12} />
                                 <span className="text-[10px] font-black uppercase tracking-widest">Direct Line</span>
                             </div>
-                            <p className="text-sm font-bold text-premium-blue-900">{inquiry.phone || 'Not Provided'}</p>
+                            <p className="text-sm font-bold text-premium-blue-900">{inquiry.phone || inquiry.phoneNumber || inquiry.direct_line || 'Not Provided'}</p>
                         </div>
                         <div className="p-3 bg-slate-50 rounded-xl">
                             <div className="flex items-center gap-2 text-slate-400 mb-1">
@@ -178,9 +178,9 @@ export default function SourceInquiriesPage() {
             const src = (inquiry.attribution?.source || 'direct').toLowerCase();
             const matchesSource = sourceConfig.match.some(m => src.includes(m));
             const matchesSearch = searchQuery === '' ||
-                (inquiry.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    inquiry.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    inquiry.phone?.includes(searchQuery));
+                (String(inquiry.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    String(inquiry.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    String(inquiry.phone || '').includes(searchQuery));
             const matchesStatus = statusFilter === 'all' || inquiry.status === statusFilter;
 
             return matchesSource && matchesSearch && matchesStatus;
