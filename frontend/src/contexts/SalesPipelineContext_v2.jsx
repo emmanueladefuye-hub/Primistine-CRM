@@ -179,11 +179,11 @@ export function SalesPipelineProvider({ children }) {
     const value = {
         // State
         leads: leads || [],
-        pagedLeads,
-        leadsHasMore,
+        pagedLeads: pagedLeads || [],
+        leadsHasMore: !!leadsHasMore,
         clients: clients || [],
         quotes: quotes || [],
-        loading: loading || pagedLoading,
+        loading: !!(loading || pagedLoading),
         pipelineStages: PIPELINE_STAGES,
 
         // Actions

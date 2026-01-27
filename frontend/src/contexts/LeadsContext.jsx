@@ -38,7 +38,7 @@ export function LeadsProvider({ children }) {
         loadMore: loadMoreLeads
     } = useScopedPagination('leads', [orderBy('createdAt', 'desc')], 20);
 
-    const loading = collectionLoading || (pagedLoading && pagedLeads.length === 0);
+    const loading = collectionLoading || (pagedLoading && (pagedLeads?.length === 0));
     const error = collectionError;
 
     const addLead = async (leadData) => {
