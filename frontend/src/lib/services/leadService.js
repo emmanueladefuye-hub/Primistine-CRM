@@ -1,6 +1,7 @@
 import { doc, getDoc, updateDoc, arrayUnion, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { PIPELINE_STAGES } from '../constants';
+import { validateMove } from '../workflowRules';
 
 export const leadService = {
     /**
@@ -70,7 +71,19 @@ export const leadService = {
         try {
             const docRef = doc(db, 'leads', id);
 
-            // Calculate days in stage (optional logic if needed, but handled by timestamps usually)
+            // Fetch lead data for validation
+            const docSnap = await getDoc(docRef);
+            if (!docSnap.exists()) throw new Error("Lead not found");
+            const lead = { id: docSnap.id, ...docSnap.data() };
+
+            // Centralized move validation
+            const error = validateMove(lead, newStageId);
+            if (error) {
+                const err = new Error(error.message);
+                err.code = 'WORKFLOW_VALIDATION_FAILED';
+                err.stageId = error.stageId;
+                throw err;
+            }
 
             await updateDoc(docRef, {
                 stage: newStageId,

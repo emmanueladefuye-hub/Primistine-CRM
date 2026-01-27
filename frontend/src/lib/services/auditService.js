@@ -50,6 +50,7 @@ export const auditService = {
                 const leadRef = doc(db, 'leads', cleanData.client.leadId);
                 await updateDoc(leadRef, {
                     hasAudit: true,
+                    auditStatus: cleanData.status || 'Draft', // Capture status (Completed/Draft)
                     updatedAt: serverTimestamp()
                 });
             }

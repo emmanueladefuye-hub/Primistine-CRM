@@ -335,13 +335,14 @@ export default function SalesDashboard() {
             toast.success('Pipeline Updated', { icon: '🎯' });
         } catch (error) {
             if (error.code === 'WORKFLOW_VALIDATION_FAILED') {
-                const nextStage = PIPELINE_STAGES.find(s => s.id === error.stageId);
+                const isAuditCase = error.stageId === 'audit' || error.stageId === 'proposal';
+
                 toast.error((t) => (
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-3 text-slate-800">
                         <p className="font-bold text-sm">Prerequisite Missing</p>
                         <p className="text-xs opacity-80">{error.message}</p>
-                        {(error.stageId === 'audit' || error.stageId === 'proposal') && (
-                            <div className="flex gap-2">
+                        <div className="flex gap-2">
+                            {isAuditCase && (
                                 <button
                                     onClick={() => {
                                         toast.dismiss(t.id);
@@ -351,14 +352,14 @@ export default function SalesDashboard() {
                                 >
                                     Run Audit Now
                                 </button>
-                                <button
-                                    onClick={() => toast.dismiss(t.id)}
-                                    className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest"
-                                >
-                                    Dismiss
-                                </button>
-                            </div>
-                        )}
+                            )}
+                            <button
+                                onClick={() => toast.dismiss(t.id)}
+                                className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
                     </div>
                 ), { duration: 6000 });
             } else {

@@ -21,6 +21,8 @@ import SiteAuditFAB from '../components/audits/tools/SiteAuditFAB';
 import { SystemLogger, LOG_ACTIONS } from '../lib/services/SystemLogger';
 import { useAuth } from '../contexts/AuthContext';
 
+import { AUDIT_VALIDATION_RULES } from '../lib/auditRules';
+
 const STEPS = {
     0: { title: 'Service Selection', id: 'service' },
     1: { title: 'Client & Site Questionnaire', id: 'details' },
@@ -245,34 +247,10 @@ export default function AuditWizard() {
     }, [auditData, currentStep, selectedServices, isFromLead, isLoading, STORAGE_KEY]);
 
     const validateStep = (step) => {
-        const d = auditData;
-
-        // Step 0: Service Selection
-        if (step === 0) {
-            if (selectedServices.length === 0) return "Please select at least one service.";
-            return true;
+        const rule = AUDIT_VALIDATION_RULES[step];
+        if (rule) {
+            return rule(auditData, selectedServices);
         }
-
-        // Step 1: Merged Audit Details (Client, Site, Load, Infra, Design)
-        if (step === 1) {
-            // Client Info Validation
-            if (!d.client?.clientName) return "Client Name is required (Client Info section).";
-            if (!d.client?.address) return "Site Address is required (Client Info section).";
-            if (!d.client?.phone) return "Client Phone is required (Client Info section).";
-
-            // Site Assessment Validation
-            // if (!d.client?.photos || d.client.photos.length < 2) return "At least 2 site photos are required (Client Info section).";
-            if (selectedServices.includes('cctv') && !d.site?.riskLevel) return "Please estimate the Risk Level (Security Assessment).";
-
-            // Load Assessment Validation
-            // Enforce at least one item if Solar/Gen is selected
-            if ((selectedServices.includes('solar') || selectedServices.includes('generator')) && (!d.load?.items || d.load.items.length === 0)) {
-                // return "Please add at least one load item."; // Soft validation
-            }
-
-            return true;
-        }
-
         return true;
     };
 
@@ -329,6 +307,8 @@ export default function AuditWizard() {
             if (isFromLead && auditData.client?.leadId) {
                 const leadRef = doc(db, 'leads', auditData.client.leadId);
                 await updateDoc(leadRef, {
+                    hasAudit: true,
+                    auditStatus: 'Completed', // Added status for workflow enforcement
                     stage: 'audit',
                     updatedAt: serverTimestamp()
                 });

@@ -84,28 +84,57 @@ export default function LeadDetailPage_v2() {
     // REFACTORED: Use leadService for updates
     const handleSaveLead = async (updates) => {
         try {
-            // Optimistic update
-            setLead(prev => ({ ...prev, ...updates }));
-
             if (updates.stage && updates.stage !== lead.stage) {
-                await leadService.moveStage(lead.id, updates.stage);
+                // Use context's moveLeadStage for validation and enforcement
+                await moveLeadStage(lead.id, updates.stage);
                 const nextStage = PIPELINE_STAGES.find(s => s.id === updates.stage);
                 toast.success(`Pipeline Updated: Moved to ${nextStage?.name || updates.stage} 🚀`);
+
+                // Fetch fresh lead data after movement
+                const freshLead = await leadService.getLeadById(id);
+                if (freshLead) setLead(freshLead);
+                return;
             }
 
-            // Filter out stage if it was handled separately, or just update the rest
+            // FILTER updates to only basic fields for simple update
             const { stage, ...otherUpdates } = updates;
             if (Object.keys(otherUpdates).length > 0) {
                 await leadService.updateLead(lead.id, otherUpdates);
+                setLead(prev => ({ ...prev, ...otherUpdates }));
+                toast.success('Lead updated successfully');
             }
 
-            if (!updates.stage) toast.success('Lead updated successfully');
-
         } catch (err) {
-            console.error("Update failed", err);
-            toast.error("Failed to update lead");
-            // Rollback optimistic update
-            // (In a real app, we'd re-fetch)
+            if (err.code === 'WORKFLOW_VALIDATION_FAILED') {
+                toast.error((t) => (
+                    <div className="flex flex-col gap-3">
+                        <p className="font-bold text-sm">Prerequisite Missing</p>
+                        <p className="text-xs opacity-80">{err.message}</p>
+                        <div className="flex gap-2">
+                            {(err.stageId === 'audit' || err.stageId === 'proposal') && (
+                                <button
+                                    onClick={() => {
+                                        toast.dismiss(t.id);
+                                        navigate('/audits/new');
+                                    }}
+                                    className="px-3 py-1.5 bg-premium-blue-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    Run Audit Now
+                                </button>
+                            )}
+                            <button
+                                onClick={() => toast.dismiss(t.id)}
+                                className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                ), { duration: 6000 });
+            } else {
+                console.error("Update failed", err);
+                toast.error("Failed to update lead");
+            }
         }
     };
 
@@ -165,24 +194,33 @@ export default function LeadDetailPage_v2() {
         if (currentIndex !== -1 && currentIndex < PIPELINE_STAGES.length - 1) {
             const nextStage = PIPELINE_STAGES[currentIndex + 1];
 
-            // VALIDATION CHECK
-            const isValid = validateStep(nextStage.id);
-            if (!isValid) {
-                if (nextStage.id === 'audit' || nextStage.id === 'proposal') {
+            try {
+                // Use the centralized logic which handles both sequence AND rules
+                await moveLeadStage(lead.id, nextStage.id);
+                toast.success(`Pipeline Updated: Moved to ${nextStage.name} 🚀`);
+
+                // Refresh local state
+                const freshLead = await leadService.getLeadById(id);
+                if (freshLead) setLead(freshLead);
+                setShowStagePrompt(false);
+            } catch (err) {
+                if (err.code === 'WORKFLOW_VALIDATION_FAILED') {
                     toast.error((t) => (
                         <div className="flex flex-col gap-3">
-                            <p className="font-bold text-sm">Prerequisite Missing: Site Audit Required</p>
-                            <p className="text-xs opacity-80">You must complete a site audit for this lead before moving to {nextStage.name}.</p>
+                            <p className="font-bold text-sm">Prerequisite Missing</p>
+                            <p className="text-xs opacity-80">{err.message}</p>
                             <div className="flex gap-2">
-                                <button
-                                    onClick={() => {
-                                        toast.dismiss(t.id);
-                                        navigate('/audits/new');
-                                    }}
-                                    className="px-3 py-1.5 bg-premium-blue-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
-                                >
-                                    Run Audit Now
-                                </button>
+                                {(err.stageId === 'audit' || err.stageId === 'proposal') && (
+                                    <button
+                                        onClick={() => {
+                                            toast.dismiss(t.id);
+                                            navigate('/audits/new');
+                                        }}
+                                        className="px-3 py-1.5 bg-premium-blue-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest"
+                                    >
+                                        Run Audit Now
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => toast.dismiss(t.id)}
                                     className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest"
@@ -193,13 +231,9 @@ export default function LeadDetailPage_v2() {
                         </div>
                     ), { duration: 6000 });
                 } else {
-                    toast.error(`Cannot move to ${nextStage.name}: Requirements not met.`);
+                    toast.error("Failed to promote stage");
                 }
-                return;
             }
-
-            await handleSaveLead({ stage: nextStage.id });
-            setShowStagePrompt(false);
         }
     };
 

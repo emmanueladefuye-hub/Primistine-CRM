@@ -11,7 +11,7 @@ import { PIPELINE_STAGES } from '../lib/constants';
 import { useAuth } from './AuthContext';
 import { SystemLogger, LOG_ACTIONS } from '../lib/services/SystemLogger';
 import { projectService } from '../lib/services/projectService';
-import { LEAD_WORKFLOW_RULES } from '../lib/workflowRules';
+import { LEAD_WORKFLOW_RULES, STAGE_ORDER, validateMove } from '../lib/workflowRules';
 
 export const LeadsContext = createContext();
 
@@ -209,18 +209,13 @@ export function LeadsProvider({ children }) {
         const lead = leads.find(l => String(l.id) === String(id));
         if (!lead) return;
 
-        // --- Workflow Validation ---
-        const stageRules = LEAD_WORKFLOW_RULES[newStage];
-        if (stageRules) {
-            for (const rule of stageRules) {
-                // We use a temporary context for validation since some rules depend on 'hasAudit' which is now in the lead obj
-                if (!rule.condition({ ...lead, hasAudit: lead.hasAudit })) {
-                    const err = new Error(rule.message);
-                    err.code = 'WORKFLOW_VALIDATION_FAILED';
-                    err.stageId = newStage;
-                    throw err;
-                }
-            }
+        // --- Workflow Validation (Sequential & Rules) ---
+        const error = validateMove(lead, newStage);
+        if (error) {
+            const err = new Error(error.message);
+            err.code = 'WORKFLOW_VALIDATION_FAILED';
+            err.stageId = error.stageId;
+            throw err;
         }
         // ---------------------------
 

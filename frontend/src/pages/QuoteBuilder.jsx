@@ -195,6 +195,19 @@ export default function QuoteBuilder() {
             return;
         }
 
+        // --- PIPELINE ENFORCEMENT ---
+        // Fetch full lead data to be sure
+        const lead = getLeadById(client.id);
+        if (lead && lead.stage !== 'audit' && lead.stage !== 'proposal' && lead.stage !== 'won') {
+            toast.error("Cannot finalize quote: Site Audit has not been completed for this lead.");
+            return;
+        }
+        if (lead && lead.auditStatus !== 'Completed') {
+            toast.error("Cannot finalize quote: Site Audit is still in 'Draft' phase.");
+            return;
+        }
+        // ---------------------------
+
         setIsGenerating(true);
         try {
             const total = getGrandTotal();

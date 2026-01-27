@@ -7,6 +7,7 @@ import { orderBy, query, collection, where, getDocs, limit } from 'firebase/fire
 import { db } from '../lib/firebase';
 import { toast } from 'react-hot-toast';
 import { PIPELINE_STAGES } from '../lib/constants';
+import { validateMove } from '../lib/workflowRules';
 
 // Import legacy contexts for REAL shim support (pointing to same memory reference)
 import { LeadsContext } from './LeadsContext';
@@ -101,6 +102,16 @@ export function SalesPipelineProvider({ children }) {
         const lead = leads?.find(l => l.id === id);
         if (!lead || lead.stage === newStage) return;
 
+        // --- Workflow Validation (Sequential & Rules) ---
+        const error = validateMove(lead, newStage);
+        if (error) {
+            const err = new Error(error.message);
+            err.code = 'WORKFLOW_VALIDATION_FAILED';
+            err.stageId = error.stageId;
+            throw err;
+        }
+        // ---------------------------
+
         try {
             // Logic for 'won' stage: Convert to Client/Project
             if (newStage === 'won' && lead.stage !== 'won') {
@@ -112,8 +123,11 @@ export function SalesPipelineProvider({ children }) {
                 stageUpdatedAt: new Date().toISOString()
             }, currentUser);
 
-            toast.success(`Lead moved to ${newStage}`);
+            toast.success(`Pipeline Updated: Moved to ${newStage}`);
         } catch (err) {
+            if (err.code === 'WORKFLOW_VALIDATION_FAILED') {
+                throw err; // Re-throw to be caught by UI handlers
+            }
             console.error('Stage move failed:', err);
             toast.error('Failed to update stage');
         }
